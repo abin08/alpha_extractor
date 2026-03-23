@@ -5,3 +5,9 @@ src/alpha_extractor.egg-info/SOURCES.txt
 src/alpha_extractor.egg-info/dependency_links.txt
 src/alpha_extractor.egg-info/requires.txt
 src/alpha_extractor.egg-info/top_level.txt
+src/core/__init__.py
+src/core/config.py
+src/core/exceptions.py
+src/core/logger.py
+src/storage/db/orm_models.py
+src/storage/db/session.py
