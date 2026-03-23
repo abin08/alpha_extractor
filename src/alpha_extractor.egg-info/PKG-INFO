@@ -16,6 +16,7 @@ Requires-Dist: pydantic-settings>=2.2.1
 Requires-Dist: beautifulsoup4>=4.12.3
 Requires-Dist: feedparser>=6.0.11
 Requires-Dist: yfinance>=0.2.37
+Requires-Dist: alembic>=1.13.1
 Provides-Extra: dev
 Requires-Dist: pytest>=8.1.1; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.23.6; extra == "dev"
