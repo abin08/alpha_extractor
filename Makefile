@@ -22,3 +22,13 @@ clean:
 
 lock:
 	uv pip compile pyproject.toml -o requirements.txt
+
+# --- Docker Commands ---
+up:
+	docker compose up -d
+
+down:
+	docker compose down
+
+logs:
+	docker compose logs -f
