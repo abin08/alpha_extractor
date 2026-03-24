@@ -1,9 +1,7 @@
 .PHONY: install format lint test commit clean lock
 
 install:
-	uv pip install -e ".[dev]"
-	pre-commit install
-	pre-commit install --hook-type commit-msg
+	uv sync
 
 format:
 	ruff format src tests
