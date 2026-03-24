@@ -11,9 +11,6 @@ format:
 lint:
 	ruff check src tests --fix
 
-test:
-	pytest tests/ -v
-
 commit:
 	cz commit
 
@@ -36,3 +33,6 @@ logs:
 # --- App Commands ---
 run:
 	uv run uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+
+test:
+	uv run pytest -v
