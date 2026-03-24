@@ -11,6 +11,7 @@ env:
   REGISTRY: hyd.ocir.io
   # This dynamically builds the URL using the secrets you saved in AE28
   IMAGE_NAME: ${{ secrets.OCI_NAMESPACE }}/alpha-extractor/api
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   test:
