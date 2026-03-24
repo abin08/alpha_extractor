@@ -4,10 +4,11 @@ install:
 	uv sync
 
 format:
-	ruff format src tests
+	uv run ruff format src tests
 
 lint:
-	ruff check src tests --fix
+	uv run ruff check src tests --fix
+	uv run ruff format src tests
 
 commit:
 	cz commit
