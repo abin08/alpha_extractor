@@ -1,23 +1,23 @@
-.PHONY: install format lint test commit clean lock
+.PHONY: install format lint test commit clean lock up down logs run
 
 install:
 	uv sync
 
 format:
-	uv run ruff format src tests
+	uvx ruff format src tests
 
 lint:
-	uv run ruff check src tests --fix
-	uv run ruff format src tests
+	uvx ruff check src tests --fix
+	uvx ruff format src tests
 
 commit:
-	cz commit
+	uv run cz commit
 
 clean:
 	rm -rf .pytest_cache .ruff_cache __pycache__ src/__pycache__ tests/__pycache__
 
 lock:
-	uv pip compile pyproject.toml -o requirements.txt
+	uv lock
 
 # --- Docker Commands ---
 up:
