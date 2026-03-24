@@ -5,6 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_db
+from src.api.routes import target_config
 from src.core.exceptions import (
     AlphaExtractorError,
     RateLimitExceeded,
@@ -55,6 +56,9 @@ async def generic_exception_handler(request: Request, exc: Exception):
             "message": "An unexpected error occurred.",
         },
     )
+
+
+app.include_router(target_config.router)
 
 
 @app.get("/health", tags=["System"])
