@@ -2,14 +2,19 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from src.core.config import settings
 
-# Create the async engine using asyncpg
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=False,  # Set to True if you want to see raw SQL generated in the console
-    future=True,
-    pool_size=10,
-    max_overflow=20,
-)
+# Check if we are using SQLite (for CI/CD tests) or Postgres (for Production/Local)
+if settings.DATABASE_URL.startswith("sqlite"):
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        connect_args={"check_same_thread": False},
+    )
+else:
+    # Create the async engine using asyncpg
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        pool_size=20,
+        max_overflow=10,
+    )
 
 # Create a session factory
 AsyncSessionLocal = async_sessionmaker(
