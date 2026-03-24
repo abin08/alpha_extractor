@@ -1,7 +1,7 @@
 image:
   # Replace <YOUR_NAMESPACE> with your actual OCI namespace!
   repository: hyd.ocir.io/axmvkruijirr/alpha-extractor/api
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   # ArgoCD will dynamically update this tag on every release
   tag: "main"
 
