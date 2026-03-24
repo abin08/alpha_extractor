@@ -34,4 +34,4 @@ run:
 	uv run uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
 
 test:
-	uv run pytest -v
+	DATABASE_URL="sqlite+aiosqlite:///:memory:" uv run pytest -v
