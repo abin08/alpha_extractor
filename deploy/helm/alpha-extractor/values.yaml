@@ -1,0 +1,50 @@
+image:
+  # Replace <YOUR_NAMESPACE> with your actual OCI namespace!
+  repository: hyd.ocir.io/axmvkruijirr/alpha-extractor/api
+  pullPolicy: IfNotPresent
+  # ArgoCD will dynamically update this tag on every release
+  tag: "main"
+
+# 2. Authentication for pulling from your private OCI registry
+imagePullSecrets:
+  - name: ocir-secret
+
+# 3. Environment Variables (We will create the actual k8s secret later)
+env:
+  secretName: alpha-extractor-secrets
+
+# 4. FastAPI Control Plane Configuration
+api:
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+# 5. Celery Worker Configuration (For Gemini AI Processing)
+worker:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+
+# 6. Celery Beat Configuration (For Scheduling)
+beat:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"

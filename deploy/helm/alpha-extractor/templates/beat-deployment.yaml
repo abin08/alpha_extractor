@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-beat
+  labels:
+    app: {{ .Release.Name }}
+    component: beat
+spec:
+  # Beat must ALWAYS be exactly 1 replica to prevent duplicate task scheduling
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+      component: beat
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+        component: beat
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: beat
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Override the default API command to start the Celery Beat scheduler
+          command: ["uv", "run", "celery", "-A", "src.worker.celery_app", "beat", "--loglevel=INFO"]
+          envFrom:
+            - secretRef:
+                name: {{ .Values.env.secretName }}
+          resources:
+            {{- toYaml .Values.beat.resources | nindent 12 }}
