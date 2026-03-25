@@ -9,6 +9,7 @@ from src.core.exceptions import RateLimitExceeded, SourceOfflineError
 from src.core.logger import get_logger
 from src.ingestion.base import DataFetcher
 from src.ingestion.factory import DataSource, FetcherFactory
+from src.ingestion.resilience import with_retry_and_jitter
 
 logger = get_logger(__name__)
 
@@ -23,6 +24,7 @@ class RssFeedFetcher(DataFetcher):
     async def fetch_company_info(self, ticker: str) -> dict[str, Any]:
         return {}
 
+    @with_retry_and_jitter()
     async def _fetch_single_feed(self, session: aiohttp.ClientSession, url: str) -> str:
         try:
             logger.info(f"Initiating RSS fetch from: {url}")
