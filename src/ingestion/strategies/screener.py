@@ -11,6 +11,7 @@ from src.core.exceptions import DataParsingError, RateLimitExceeded, SourceOffli
 from src.core.logger import get_logger
 from src.ingestion.base import DataFetcher
 from src.ingestion.factory import DataSource, FetcherFactory
+from src.ingestion.resilience import with_retry_and_jitter
 
 logger = get_logger(__name__)
 
@@ -35,6 +36,7 @@ class ScreenerFetcher(DataFetcher):
         """Removes Yahoo Finance suffixes (.NS, .BO) to match Screener's URL format."""
         return re.sub(r"\.(NS|BO)$", "", ticker.upper())
 
+    @with_retry_and_jitter()
     async def _fetch_html(self, ticker: str) -> str:
         clean_ticker = self._clean_ticker(ticker)
 
