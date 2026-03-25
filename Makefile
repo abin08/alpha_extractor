@@ -3,6 +3,9 @@
 install:
 	uv sync
 
+install-dev:
+	uv sync --extra dev
+
 format:
 	uvx ruff format src tests
 

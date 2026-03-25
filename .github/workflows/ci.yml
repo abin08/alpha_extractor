@@ -31,8 +31,8 @@ jobs:
         with:
           python-version-file: ".python-version"
 
-      - name: Install dependencies
-        run: make install
+      - name: Install dependencies (dev extras for coverage)
+        run: make install-dev
 
       - name: Run Linters
         run: make lint
