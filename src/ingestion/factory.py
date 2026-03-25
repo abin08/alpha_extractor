@@ -10,6 +10,7 @@ class DataSource(enum.StrEnum):
     AMFI = "amfi"
     RSS_FEED = "rss_feed"
     NSE_PDF = "nse_pdf"
+    SCREENER = "screener"
 
 
 class FetcherFactory:

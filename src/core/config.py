@@ -18,6 +18,7 @@ class Settings(BaseSettings):
         "https://www.moneycontrol.com/rss/business.xml",
         "https://www.livemint.com/rss/markets",
     ]
+    SCREENER_BASE_URL: str = "https://www.screener.in/company/"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
