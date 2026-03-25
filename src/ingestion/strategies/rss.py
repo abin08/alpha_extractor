@@ -5,6 +5,7 @@ from typing import Any
 import aiohttp
 import feedparser
 
+from src.core.config import settings
 from src.ingestion.base import DataFetcher
 from src.ingestion.factory import DataSource, FetcherFactory
 
@@ -14,11 +15,6 @@ logger = logging.getLogger(__name__)
 @FetcherFactory.register(DataSource.RSS_FEED)
 class RssFeedFetcher(DataFetcher):
     """Asynchronously fetches and parses multiple RSS feeds concurrently."""
-
-    RSS_URLS = [
-        "https://www.moneycontrol.com/rss/business.xml",
-        "https://www.livemint.com/rss/markets",
-    ]
 
     async def fetch_price_history(self, ticker: str, period: str = "1mo") -> dict[str, Any]:
         return {"ticker": ticker, "data": []}
@@ -42,7 +38,7 @@ class RssFeedFetcher(DataFetcher):
         then parses them and filters articles containing the requested ticker.
         """
         async with aiohttp.ClientSession() as session:
-            tasks = [self._fetch_single_feed(session, url) for url in self.RSS_URLS]
+            tasks = [self._fetch_single_feed(session, url) for url in settings.RSS_URLS]
             xml_responses = await asyncio.gather(*tasks)
 
         articles = []
