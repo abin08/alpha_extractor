@@ -6,6 +6,7 @@ import yfinance as yf
 from src.core.exceptions import SourceOfflineError
 from src.core.logger import get_logger
 from src.ingestion.base import DataFetcher
+from src.ingestion.circuit_breaker import circuit_breaker
 from src.ingestion.factory import DataSource, FetcherFactory
 from src.ingestion.resilience import with_retry_and_jitter
 
@@ -45,6 +46,7 @@ class YFinanceFetcher(DataFetcher):
 
         return {"ticker": ticker, "data": df.to_dict(orient="records")}
 
+    @circuit_breaker(source_name="YFinance", failure_threshold=5, recovery_timeout=900)
     @with_retry_and_jitter()
     async def fetch_price_history(self, ticker: str, period: str = "1mo") -> dict[str, Any]:
         """Asynchronously fetch historical price data."""
@@ -70,6 +72,7 @@ class YFinanceFetcher(DataFetcher):
         stock = yf.Ticker(ticker)
         return stock.news
 
+    @circuit_breaker(source_name="YFinance", failure_threshold=5, recovery_timeout=900)
     @with_retry_and_jitter()
     async def fetch_news(self, ticker: str) -> list[dict[str, Any]]:
         """Asynchronously fetch recent news articles related to the ticker."""
