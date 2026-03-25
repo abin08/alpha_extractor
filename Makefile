@@ -1,4 +1,4 @@
-.PHONY: install format lint test commit clean lock up down logs run
+.PHONY: install format lint test commit clean lock up down logs run coverage coverage-html
 
 install:
 	uv sync
@@ -37,7 +37,7 @@ test:
 	DATABASE_URL="sqlite+aiosqlite:///:memory:" uv run pytest -v
 
 coverage:
-	DATABASE_URL="sqlite+aiosqlite:///:memory:" uv run pytest -v --cov-report=xml
+	DATABASE_URL="sqlite+aiosqlite:///:memory:" uv run pytest -v --cov=src --cov-report=term-missing --cov-report=xml
 
 coverage-html:
-	DATABASE_URL="sqlite+aiosqlite:///:memory:" uv run pytest -v --cov-report=html
+	DATABASE_URL="sqlite+aiosqlite:///:memory:" uv run pytest -v --cov=src --cov-report=html
