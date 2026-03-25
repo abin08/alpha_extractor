@@ -40,6 +40,16 @@ jobs:
       - name: Run Tests
         run: make test
 
+      - name: Run Coverage
+        run: make coverage
+
+      - name: Upload coverage.xml
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
   build-and-push:
     name: Build & Push ARM64 Docker Image
     needs: test
