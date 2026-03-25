@@ -20,3 +20,8 @@ class DataFetcher(ABC):
         Fetch fundamental company information and metadata.
         """
         pass
+
+    @abstractmethod
+    async def fetch_news(self, ticker: str) -> list[dict[str, Any]]:
+        """Fetch unstructured news articles or context for a given ticker."""
+        pass
