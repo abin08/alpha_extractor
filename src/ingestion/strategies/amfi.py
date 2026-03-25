@@ -6,6 +6,7 @@ from src.core.config import settings
 from src.core.exceptions import DataParsingError, RateLimitExceeded, SourceOfflineError
 from src.core.logger import get_logger
 from src.ingestion.base import DataFetcher
+from src.ingestion.circuit_breaker import circuit_breaker
 from src.ingestion.factory import DataSource, FetcherFactory
 from src.ingestion.resilience import with_retry_and_jitter
 
@@ -20,6 +21,7 @@ class AMFIFetcher(DataFetcher):
     Scheme Code;ISIN Div;ISIN Reinv;Scheme Name;Net Asset Value;Date
     """
 
+    @circuit_breaker(source_name="AMFI", failure_threshold=3, recovery_timeout=900)
     @with_retry_and_jitter()
     async def _download_amfi_data(self) -> str:
         """Asynchronously downloads the raw text file."""

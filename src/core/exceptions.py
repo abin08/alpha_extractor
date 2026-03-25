@@ -39,3 +39,13 @@ class DataParsingError(AlphaExtractorError):
         self.source = source
         self.details = details
         super().__init__(f"Failed to parse data from {source}. Details: {details}")
+
+
+class CircuitBreakerOpenError(AlphaExtractorError):
+    """Raised when a data source's circuit breaker is OPEN due to consecutive failures.
+    Prevents the system from making network calls to a known-down service.
+    """
+
+    def __init__(self, source: str):
+        self.source = source
+        super().__init__(f"Circuit breaker is OPEN for {source}. Requests are temporarily halted.")
