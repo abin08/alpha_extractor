@@ -12,6 +12,13 @@ class Settings(BaseSettings):
     UNG_API_URL: str | None = None
     UNG_API_KEY: str | None = None
 
+    # Ingestion Target URLs
+    AMFI_URL: str = "https://www.amfiindia.com/spages/NAVAll.txt"
+    RSS_URLS: list[str] = [
+        "https://www.moneycontrol.com/rss/business.xml",
+        "https://www.livemint.com/rss/markets",
+    ]
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 

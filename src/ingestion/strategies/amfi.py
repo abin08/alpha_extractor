@@ -3,6 +3,7 @@ from typing import Any
 
 import aiohttp
 
+from src.core.config import settings
 from src.ingestion.base import DataFetcher
 from src.ingestion.factory import DataSource, FetcherFactory
 
@@ -17,13 +18,11 @@ class AMFIFetcher(DataFetcher):
     Scheme Code;ISIN Div;ISIN Reinv;Scheme Name;Net Asset Value;Date
     """
 
-    AMFI_URL = "https://www.amfiindia.com/spages/NAVAll.txt"
-
     async def _download_amfi_data(self) -> str:
         """Asynchronously downloads the raw text file."""
-        logger.info(f"Downloading raw AMFI data from {self.AMFI_URL}")
+        logger.info(f"Downloading raw AMFI data from {settings.AMFI_URL}")
         async with aiohttp.ClientSession() as session:
-            async with session.get(self.AMFI_URL) as response:
+            async with session.get(settings.AMFI_URL) as response:
                 response.raise_for_status()
                 return await response.text()
 
