@@ -1,15 +1,16 @@
 import asyncio
-import logging
 from typing import Any
 
 import aiohttp
 import feedparser
 
 from src.core.config import settings
+from src.core.exceptions import RateLimitExceeded, SourceOfflineError
+from src.core.logger import get_logger
 from src.ingestion.base import DataFetcher
 from src.ingestion.factory import DataSource, FetcherFactory
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @FetcherFactory.register(DataSource.RSS_FEED)
@@ -28,6 +29,15 @@ class RssFeedFetcher(DataFetcher):
             async with session.get(url, timeout=10) as response:
                 response.raise_for_status()
                 return await response.text()
+        except aiohttp.ClientResponseError as e:
+            if e.status == 429:
+                logger.warning(f"Rate limited by {url}")
+                raise RateLimitExceeded(source=url)
+            logger.error(f"HTTP error fetching {url}: {e.status}")
+            raise SourceOfflineError(source=url, status_code=e.status)
+        except TimeoutError:
+            logger.error(f"Timeout fetching {url}")
+            raise SourceOfflineError(source=url)
         except Exception as e:
             logger.error(f"Failed to fetch RSS feed {url}: {e}")
             return ""
@@ -47,6 +57,11 @@ class RssFeedFetcher(DataFetcher):
                 continue
 
             feed = await asyncio.to_thread(feedparser.parse, xml_content)
+
+            if feed.bozo and not feed.entries:
+                logger.warning("Malformed RSS XML detected.")
+                # We log it instead of raising to allow other concurrent feeds to succeed
+                continue
 
             for entry in feed.entries:
                 title = entry.get("title", "")

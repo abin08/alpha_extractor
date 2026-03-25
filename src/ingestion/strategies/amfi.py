@@ -1,13 +1,14 @@
-import logging
 from typing import Any
 
 import aiohttp
 
 from src.core.config import settings
+from src.core.exceptions import DataParsingError, RateLimitExceeded, SourceOfflineError
+from src.core.logger import get_logger
 from src.ingestion.base import DataFetcher
 from src.ingestion.factory import DataSource, FetcherFactory
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @FetcherFactory.register(DataSource.AMFI)
@@ -21,10 +22,17 @@ class AMFIFetcher(DataFetcher):
     async def _download_amfi_data(self) -> str:
         """Asynchronously downloads the raw text file."""
         logger.info(f"Downloading raw AMFI data from {settings.AMFI_URL}")
-        async with aiohttp.ClientSession() as session:
-            async with session.get(settings.AMFI_URL) as response:
-                response.raise_for_status()
-                return await response.text()
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(settings.AMFI_URL) as response:
+                    response.raise_for_status()
+                    return await response.text()
+        except aiohttp.ClientResponseError as e:
+            if e.status == 429:
+                raise RateLimitExceeded(source="AMFI")
+            raise SourceOfflineError(source="AMFI", status_code=e.status)
+        except aiohttp.ClientError:
+            raise SourceOfflineError(source="AMFI")
 
     async def fetch_price_history(self, ticker: str, period: str = "latest") -> dict[str, Any]:
         """
@@ -32,6 +40,11 @@ class AMFIFetcher(DataFetcher):
         Maps the NAV to the 'Close' key to maintain compatibility with equities.
         """
         raw_text = await self._download_amfi_data()
+
+        if not raw_text or "Scheme Code" not in raw_text:
+            raise DataParsingError(
+                source="AMFI", details="Raw text is empty or missing expected headers."
+            )
 
         for line in raw_text.splitlines():
             # Skip empty lines and headers
@@ -59,6 +72,11 @@ class AMFIFetcher(DataFetcher):
         Parses the daily file to extract fundamental scheme details.
         """
         raw_text = await self._download_amfi_data()
+
+        if not raw_text or "Scheme Code" not in raw_text:
+            raise DataParsingError(
+                source="AMFI", details="Raw text is empty or missing expected headers."
+            )
 
         for line in raw_text.splitlines():
             if not line or line.startswith("Scheme Code") or ";" not in line:
