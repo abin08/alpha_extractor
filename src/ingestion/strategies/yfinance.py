@@ -1,13 +1,14 @@
 import asyncio
-import logging
 from typing import Any
 
 import yfinance as yf
 
+from src.core.exceptions import SourceOfflineError
+from src.core.logger import get_logger
 from src.ingestion.base import DataFetcher
 from src.ingestion.factory import DataSource, FetcherFactory
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @FetcherFactory.register(DataSource.YFINANCE)
@@ -20,8 +21,12 @@ class YFinanceFetcher(DataFetcher):
     def _get_history_sync(self, ticker: str, period: str) -> dict[str, Any]:
         """Synchronous method to execute the yfinance API call and parse pandas data."""
         logger.info(f"Initiating yfinance history fetch for ticker: {ticker}, period: {period}")
-        stock = yf.Ticker(ticker)
-        df = stock.history(period=period)
+        try:
+            stock = yf.Ticker(ticker)
+            df = stock.history(period=period)
+        except Exception as e:
+            # yfinance throws generic exceptions on network failure
+            raise SourceOfflineError(source="yfinance") from e
 
         if df.empty:
             logger.warning(f"yfinance returned empty historical data for ticker: {ticker}")
