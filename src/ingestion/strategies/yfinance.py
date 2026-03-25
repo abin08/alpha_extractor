@@ -57,3 +57,13 @@ class YFinanceFetcher(DataFetcher):
     async def fetch_company_info(self, ticker: str) -> dict[str, Any]:
         """Asynchronously fetch fundamental company information."""
         return await asyncio.to_thread(self._get_info_sync, ticker)
+
+    def _get_news_sync(self, ticker: str) -> list[dict[str, Any]]:
+        """Synchronous method to fetch news from yfinance."""
+        stock = yf.Ticker(ticker)
+        return stock.news
+
+    async def fetch_news(self, ticker: str) -> list[dict[str, Any]]:
+        """Asynchronously fetch recent news articles related to the ticker."""
+        logger.info(f"Initiating yfinance news fetch for ticker: {ticker}")
+        return await asyncio.to_thread(self._get_news_sync, ticker)
