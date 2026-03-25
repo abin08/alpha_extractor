@@ -35,3 +35,9 @@ run:
 
 test:
 	DATABASE_URL="sqlite+aiosqlite:///:memory:" uv run pytest -v
+
+coverage:
+	DATABASE_URL="sqlite+aiosqlite:///:memory:" uv run pytest -v --cov-report=xml
+
+coverage-html:
+	DATABASE_URL="sqlite+aiosqlite:///:memory:" uv run pytest -v --cov-report=html
