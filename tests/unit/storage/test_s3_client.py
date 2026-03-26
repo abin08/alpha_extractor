@@ -8,7 +8,7 @@ from src.storage.object_store.s3_client import AsyncS3Client
 
 @pytest.fixture
 def mock_aioboto3_session():
-    with patch("src.storage.s3_client.aioboto3.Session") as mock_session_class:
+    with patch("src.storage.object_store.s3_client.aioboto3.Session") as mock_session_class:
         mock_session = MagicMock()
         mock_client = AsyncMock()
 
