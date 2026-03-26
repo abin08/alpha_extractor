@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     ]
     SCREENER_BASE_URL: str = "https://www.screener.in/company/"
 
+    # S3 / MinIO Storage Configuration
+    S3_ENDPOINT_URL: str = "http://localhost:9000"
+    S3_ACCESS_KEY: str = "minioadmin"
+    S3_SECRET_KEY: str = "minioadmin"
+    S3_BUCKET_NAME: str = "alpha-extractor-raw"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
