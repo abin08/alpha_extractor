@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.storage.s3_client import AsyncS3Client
+from src.storage.object_store.s3_client import AsyncS3Client
 
 
 @pytest.fixture
