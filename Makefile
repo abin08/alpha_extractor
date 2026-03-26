@@ -44,3 +44,7 @@ coverage:
 
 coverage-html:
 	DATABASE_URL="sqlite+aiosqlite:///:memory:" uv run pytest -v --cov=src --cov-report=html
+
+.PHONY: test-ingestion
+test-ingestion:
+	uv run python -m scripts.run_ingestion
