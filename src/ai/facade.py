@@ -5,6 +5,7 @@ from typing import Any
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
+from pydantic import ValidationError
 
 from src.core.config import settings
 from src.core.exceptions import (
@@ -60,6 +61,21 @@ class LLMServiceFacade:
                 )
 
             return response.parsed
+
+        except ValidationError as e:
+            # Attempt to safely extract the raw text
+            # so we can see what the LLM actually hallucinated
+            raw_text = (
+                response.text
+                if "response" in locals() and hasattr(response, "text")
+                else "Raw text unavailable"
+            )
+
+            logger.error(f"LLM output failed Pydantic schema validation. Raw Output: {raw_text}")
+            logger.error(f"Validation Details: {str(e)}")
+
+            # Wrap in our domain exception so the @with_retry_and_jitter decorator tries again
+            raise LLMGenerationError(f"Schema validation failed: {e.error_count()} errors found.")
 
         except APIError as e:
             # Map Google's proprietary errors to our Core Domain Exceptions

@@ -1,8 +1,10 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import BaseModel, ValidationError
 
 from src.ai.facade import LLMServiceFacade
+from src.core.exceptions import LLMGenerationError
 from src.domain.schemas.ai_response import AssetInsight, MacroAnalysis, SentimentEnum
 
 
@@ -60,3 +62,40 @@ async def test_generate_brief_success(mock_genai_client):
     assert call_kwargs["config"].system_instruction == "You are an expert analyst."
     # Ensure the contents ONLY contain the data payload
     assert call_kwargs["contents"] == '{"ticker": "RELIANCE"}'
+
+
+@pytest.mark.asyncio
+@patch("src.ai.facade.settings.GEMINI_MODEL", "gemini-3.1-flash-lite-preview")
+async def test_generate_brief_validation_error(mock_genai_client):
+    """
+    Simulates the scenario where the LLM returns invalid JSON
+    that violates our Pydantic schema.
+    Proves that we catch the Pydantic ValidationError
+    and convert it into a retryable LLMGenerationError.
+    """
+
+    # 1. Generate a real Pydantic ValidationError safely
+    class DummySchema(BaseModel):
+        strict_int: int
+
+    try:
+        DummySchema(strict_int="I am a hallucinated string")
+    except ValidationError as e:
+        real_validation_error = e
+
+    # 2. Tell our mocked SDK to throw this exact error when called
+    mock_genai_client.generate_content.side_effect = real_validation_error
+
+    facade = LLMServiceFacade()
+
+    # 3. Assert that the Facade catches the Pydantic error
+    # and raises our domain exception
+    with pytest.raises(LLMGenerationError) as exc_info:
+        await facade.generate_brief({"ticker": "RELIANCE"}, "You are an expert analyst.")
+
+    # Verify our custom message is in the error
+    assert "Schema validation failed" in str(exc_info.value)
+
+    # The local retry decorator ignores logic errors,
+    # allowing Celery to handle the backoff!
+    assert mock_genai_client.generate_content.call_count == 1
