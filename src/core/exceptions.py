@@ -49,3 +49,13 @@ class CircuitBreakerOpenError(AlphaExtractorError):
     def __init__(self, source: str):
         self.source = source
         super().__init__(f"Circuit breaker is OPEN for {source}. Requests are temporarily halted.")
+
+
+class LLMGenerationError(AlphaExtractorError):
+    """Raised when the LLM API responds successfully, but the generation fails
+    (e.g., safety filters tripped, empty response, or Pydantic parsing failure).
+    """
+
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(f"LLM generation failed safely: {reason}")
