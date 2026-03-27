@@ -1,3 +1,28 @@
+## 0.4.0 (2026-03-27)
+
+### Feat
+
+- **ai**: AE17 implement robust ContextBuilder with empty node pruning and token optimization (#34)
+- **storage**: AE16 implement async MinIO S3 client for context payload storage (#32)
+- **ingestion**: AE15 implement Redis-backed circuit breaker for failing sources (#30)
+- **ingestion**: AE14 implement async exponential backoff and jitter decorator
+- **ingestion**: AE13 implement ScreenerFetcher with BeautifulSoup parsing (#28)
+- **ingestion**: AE12 implement rss strategy and add fetch_news to base interface (#22)
+- **ingestion**: AE11 implement AMFI mutual fund strategy and tests (#21)
+- **ingestion**: AE10 implement yfinance strategy with async wrapper and tests (#20)
+
+### Fix
+
+- **unit-test**: fixed import error in test_s3_client
+- **coverage**: fix coverage fail issue in ci pipeline (#26)
+- **coverage**: move coverage flags out of pytest ini (#25)
+
+### Refactor
+
+- **storage**: moved s3 client code to package called object_store (#33)
+- **ingestion**: handle exceptions and raise custom exceptions (#27)
+- **config**: extract hardcoded target URLs to central Pydantic settings (#23)
+
 ## 0.3.0 (2026-03-25)
 
 ### Feat
