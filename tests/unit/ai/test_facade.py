@@ -19,6 +19,7 @@ def mock_genai_client():
 
 
 @pytest.mark.asyncio
+@patch("src.ai.facade.settings.GEMINI_MODEL", "gemini-3.1-flash-lite-preview")
 async def test_generate_brief_success(mock_genai_client):
     # Setup our fake successful LLM response using your existing domain models
     fake_response = MagicMock()
