@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     GEMINI_API_KEY: str | None = None
+    GEMINI_MODEL: str | None = None
     REDIS_URL: str | None = None
     UNG_API_URL: str | None = None
     UNG_API_KEY: str | None = None
