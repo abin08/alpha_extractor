@@ -14,7 +14,8 @@ from src.core.exceptions import (
 )
 from src.core.logger import get_logger
 from src.domain.schemas.ai_response import MacroAnalysis
-from src.ingestion.resilience import circuit_breaker, with_retry_and_jitter
+from src.ingestion.circuit_breaker import circuit_breaker
+from src.ingestion.resilience import with_retry_and_jitter
 
 logger = get_logger(__name__)
 

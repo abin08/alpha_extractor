@@ -22,6 +22,10 @@ def mock_genai_client():
 async def test_generate_brief_success(mock_genai_client):
     # Setup our fake successful LLM response using your existing domain models
     fake_response = MagicMock()
+    fake_candidate = MagicMock()
+    fake_candidate.finish_reason = "STOP"
+    fake_response.candidates = [fake_candidate]
+
     fake_response.parsed = MacroAnalysis(
         macro_sentiment=SentimentEnum.BULLISH,
         sector_rotation="Energy sector showing strength.",
@@ -51,3 +55,7 @@ async def test_generate_brief_success(mock_genai_client):
     call_kwargs = mock_genai_client.generate_content.call_args.kwargs
     assert call_kwargs["model"] == "gemini-3.1-flash-lite-preview"
     assert call_kwargs["config"].response_mime_type == "application/json"
+    # Ensure the system prompt is safely isolated in the config
+    assert call_kwargs["config"].system_instruction == "You are an expert analyst."
+    # Ensure the contents ONLY contain the data payload
+    assert call_kwargs["contents"] == '{"ticker": "RELIANCE"}'
