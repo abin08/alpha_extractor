@@ -1,9 +1,16 @@
 from .amfi import AMFIFetcher
+from .nse_pdf import NSEPDFStrategy
 from .rss import RssFeedFetcher
 from .screener import ScreenerFetcher
 from .yfinance import YFinanceFetcher
 
-__all__ = ["YFinanceFetcher", "AMFIFetcher", "RssFeedFetcher", "ScreenerFetcher"]
+__all__ = [
+    "YFinanceFetcher",
+    "AMFIFetcher",
+    "RssFeedFetcher",
+    "ScreenerFetcher",
+    "NSEPDFStrategy",
+]
 
 
 def register_strategies() -> None:
