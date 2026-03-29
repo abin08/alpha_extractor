@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.core.exceptions import DataParsingError
+from src.domain.models import AssetContext
 from src.ingestion.strategies.screener import ScreenerFetcher
 
 MOCK_HTML = """
@@ -36,7 +37,12 @@ async def test_fetch_company_info_success(mock_get, fetcher):
     mock_get.return_value.__aenter__.return_value = mock_response
 
     # 2. Act: We pass 'RELIANCE.NS' to test the ticker normalization
-    result = await fetcher.fetch_company_info("RELIANCE.NS")
+    asset = AssetContext(
+        internal_symbol="RELIANCE.NS",
+        company_name="Reliance",
+        screener_symbol="RELIANCE",
+    )
+    result = await fetcher.fetch_company_info(asset)
 
     # 3. Assert
     assert result["ticker"] == "RELIANCE"
@@ -58,8 +64,9 @@ async def test_fetch_company_info_parsing_error(mock_get, fetcher):
     mock_get.return_value.__aenter__.return_value = mock_response
 
     # 2 & 3. Act & Assert: Should raise our custom DataParsingError
+    asset = AssetContext(internal_symbol="TCS.NS", company_name="TCS", screener_symbol="TCS")
     with pytest.raises(DataParsingError) as exc_info:
-        await fetcher.fetch_company_info("TCS")
+        await fetcher.fetch_company_info(asset)
 
     assert "Screener" in str(exc_info.value)
     assert "Missing ul#top-ratios" in str(exc_info.value)
