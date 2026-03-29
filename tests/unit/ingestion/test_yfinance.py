@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+from src.domain.models import AssetContext
 from src.ingestion.strategies.yfinance import YFinanceFetcher
 
 
@@ -33,7 +34,12 @@ async def test_fetch_price_history(mock_ticker, fetcher):
     mock_instance.history.return_value = mock_df
 
     # 2. Act: Call our async wrapper
-    result = await fetcher.fetch_price_history("RELIANCE.NS", period="1d")
+    asset = AssetContext(
+        internal_symbol="RELIANCE.NS",
+        company_name="Reliance",
+        yfinance_symbol="RELIANCE.NS",
+    )
+    result = await fetcher.fetch_price_history(asset, period="1d")
 
     # 3. Assert: Verify it correctly converted the DataFrame to a JSON-serializable dict
     assert result["ticker"] == "RELIANCE.NS"
@@ -52,7 +58,12 @@ async def test_fetch_company_info(mock_ticker, fetcher):
     mock_instance.info = {"shortName": "Reliance Industries", "sector": "Energy"}
 
     # 2. Act
-    result = await fetcher.fetch_company_info("RELIANCE.NS")
+    asset = AssetContext(
+        internal_symbol="RELIANCE.NS",
+        company_name="Reliance",
+        yfinance_symbol="RELIANCE.NS",
+    )
+    result = await fetcher.fetch_company_info(asset)
 
     # 3. Assert
     assert result["shortName"] == "Reliance Industries"

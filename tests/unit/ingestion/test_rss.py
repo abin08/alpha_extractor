@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.domain.models import AssetContext
 from src.ingestion.strategies.rss import RssFeedFetcher
 
 MOCK_RSS_XML = """<?xml version="1.0" encoding="UTF-8" ?>
@@ -35,7 +36,8 @@ async def test_fetch_news(mock_get, fetcher):
     mock_get.return_value.__aenter__.return_value = mock_response
 
     # 2. Act
-    result = await fetcher.fetch_news("Reliance", "Reliance Industries")
+    asset = AssetContext(internal_symbol="RELIANCE.NS", company_name="Reliance Industries")
+    result = await fetcher.fetch_news(asset)
 
     # 3. Assert
     assert len(result) == 2  # Assuming 2 RSS URLs fetch the same mock
@@ -44,7 +46,8 @@ async def test_fetch_news(mock_get, fetcher):
 
 @pytest.mark.asyncio
 async def test_empty_methods(fetcher):
-    price_data = await fetcher.fetch_price_history("RELIANCE.NS")
+    asset = AssetContext(internal_symbol="RELIANCE.NS", company_name="Reliance Industries")
+    price_data = await fetcher.fetch_price_history(asset)
     info_data = await fetcher.fetch_company_info("RELIANCE.NS")
 
     assert price_data["data"] == []

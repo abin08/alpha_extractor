@@ -5,48 +5,39 @@ import time
 from typing import Any
 
 from src.core.logger import get_logger
+from src.domain.models import AssetContext
 from src.ingestion.factory import DataSource, FetcherFactory
 from src.ingestion.strategies import register_strategies
 
 logger = get_logger("alpha_cli")
 
-DEFAULT_TARGET_TICKER = "HDFCBANK.NS"
-DEFAULT_TARGET_COMPANY_NAME = "HDFC Bank"
-DEFAULT_TARGET_AMFI = "120504"
 
-
-async def gather_asset_context(
-    ticker: str, amfi_code: str = None, company_name: str = ""
-) -> dict[str, Any]:
-    """Concurrently fetches all available data for a given asset."""
-
+async def gather_asset_context(asset: AssetContext) -> dict[str, Any]:
+    """Concurrently fetches all available data for a given asset using the Security Master."""
     register_strategies()
 
-    # 1. Initialize our strategies via the Factory
     yf_fetcher = FetcherFactory.create(DataSource.YFINANCE)
     screener_fetcher = FetcherFactory.create(DataSource.SCREENER)
     rss_fetcher = FetcherFactory.create(DataSource.RSS_FEED)
     amfi_fetcher = FetcherFactory.create(DataSource.AMFI)
+    nse_fetcher = FetcherFactory.create(DataSource.NSE_PDF)
 
-    payload = {"ticker": ticker, "timestamp": time.time()}
-    logger.info(f"Initiating concurrent data extraction for {ticker}...")
+    payload = {"asset": asset.model_dump(), "timestamp": time.time()}
+    logger.info(f"Initiating concurrent data extraction for {asset.internal_symbol}...")
 
-    # 2. Define our async tasks
-    # For Equities: We want Price Action, Fundamentals, and News
     tasks = [
-        yf_fetcher.fetch_price_history(ticker, period="1mo"),
-        screener_fetcher.fetch_company_info(ticker),
-        rss_fetcher.fetch_news(ticker, company_name),
+        yf_fetcher.fetch_price_history(asset, period="1mo"),
+        screener_fetcher.fetch_company_info(asset),
+        rss_fetcher.fetch_news(asset),
+        nse_fetcher.fetch_news(asset),
     ]
 
-    # If an AMFI code is provided, fetch mutual fund data too
-    if amfi_code:
-        tasks.append(amfi_fetcher.fetch_company_info(amfi_code))
+    if asset.amfi_code:
+        tasks.append(amfi_fetcher.fetch_company_info(asset))
+        tasks.append(amfi_fetcher.fetch_price_history(asset))
 
-    # 3. Execute all network I/O concurrently
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # 4. Map results back to our payload
     payload["price_action"] = (
         results[0] if not isinstance(results[0], Exception) else str(results[0])
     )
@@ -54,26 +45,55 @@ async def gather_asset_context(
         results[1] if not isinstance(results[1], Exception) else str(results[1])
     )
     payload["news"] = results[2] if not isinstance(results[2], Exception) else str(results[2])
+    payload["corporate_filings"] = (
+        results[3] if not isinstance(results[3], Exception) else str(results[3])
+    )
 
-    if amfi_code:
-        payload["mutual_fund"] = (
-            results[3] if not isinstance(results[3], Exception) else str(results[3])
+    if asset.amfi_code:
+        payload["mutual_fund_info"] = (
+            results[4] if not isinstance(results[4], Exception) else str(results[4])
+        )
+        payload["mutual_fund_nav"] = (
+            results[5] if not isinstance(results[5], Exception) else str(results[5])
         )
 
     return payload
 
 
-async def main(target_ticker=None, target_company_name=None, target_amfi=None):
+async def main(
+    internal_symbol: str,
+    company_name: str,
+    yfinance_symbol: str = None,
+    screener_symbol: str = None,
+    nse_symbol: str = None,
+    amfi_code: str = None,
+):
     start_time = time.time()
 
-    TARGET_TICKER = target_ticker or DEFAULT_TARGET_TICKER
-    TARGET_COMPANY_NAME = target_company_name or DEFAULT_TARGET_COMPANY_NAME
-    TARGET_AMFI = target_amfi or DEFAULT_TARGET_AMFI
+    # Intelligent Fallbacks: If vendor specific symbols aren't passed,
+    # guess them from the internal symbol
+    base_symbol = internal_symbol.split(".")[0]
+    yf_sym = yfinance_symbol if yfinance_symbol is not None else internal_symbol
+    screen_sym = screener_symbol if screener_symbol is not None else base_symbol
+    nse_sym = nse_symbol if nse_symbol is not None else base_symbol
+
+    # Helper to clean "None" strings coming from CLI arguments
+    def clean_arg(val):
+        return val if val and str(val).lower() != "none" else None
+
+    # Build the full Security Master Entity
+    asset = AssetContext(
+        internal_symbol=internal_symbol,
+        company_name=company_name,
+        yfinance_symbol=clean_arg(yf_sym),
+        screener_symbol=clean_arg(screen_sym),
+        nse_symbol=clean_arg(nse_sym),
+        amfi_code=clean_arg(amfi_code),
+    )
 
     try:
-        final_context = await gather_asset_context(TARGET_TICKER, TARGET_AMFI, TARGET_COMPANY_NAME)
+        final_context = await gather_asset_context(asset)
 
-        # Print the beautiful, raw data payload
         print("\n" + "=" * 50)
         print("🚀 ALPHA EXTRACTOR: RAW DATA PAYLOAD")
         print("=" * 50)
@@ -88,35 +108,31 @@ async def main(target_ticker=None, target_company_name=None, target_amfi=None):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Run asset context extraction with optional overrides."
-    )
+    parser = argparse.ArgumentParser(description="Run asset context extraction via CLI.")
 
+    # Switched to named arguments (--flag) for maximum flexibility
     parser.add_argument(
-        "TARGET_TICKER",
-        nargs="?",
-        default=None,
-        help=f"Ticker symbol (default: {DEFAULT_TARGET_TICKER})",
+        "--internal",
+        default="HDFCBANK.NS",
+        help="Primary internal ticker (e.g. HDFCBANK.NS)",
     )
+    parser.add_argument("--name", default="HDFC Bank", help="Natural language company name")
     parser.add_argument(
-        "TARGET_COMPANY_NAME",
-        nargs="?",
-        default=None,
-        help=f'Company name (default: "{DEFAULT_TARGET_COMPANY_NAME}")',
+        "--yfinance", default=None, help="Yahoo Finance specific symbol (e.g. ^NSEI)"
     )
-    parser.add_argument(
-        "TARGET_AMFI",
-        nargs="?",
-        default=None,
-        help=f"AMFI code (default: {DEFAULT_TARGET_AMFI})",
-    )
+    parser.add_argument("--screener", default=None, help="Screener.in specific symbol")
+    parser.add_argument("--nse", default=None, help="NSE specific symbol")
+    parser.add_argument("--amfi", default=None, help="AMFI mutual fund code")
 
     args = parser.parse_args()
-    # Ensure Windows compatibility for asyncio if necessary, otherwise standard run
+
     asyncio.run(
         main(
-            target_ticker=args.TARGET_TICKER,
-            target_company_name=args.TARGET_COMPANY_NAME,
-            target_amfi=args.TARGET_AMFI,
+            internal_symbol=args.internal,
+            company_name=args.name,
+            yfinance_symbol=args.yfinance,
+            screener_symbol=args.screener,
+            nse_symbol=args.nse,
+            amfi_code=args.amfi,
         )
     )

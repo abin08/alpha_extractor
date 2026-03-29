@@ -6,6 +6,7 @@ from pypdf import PdfReader
 
 from src.core.exceptions import DataParsingError, SourceOfflineError
 from src.core.logger import get_logger
+from src.domain.models import AssetContext
 from src.ingestion.base import DataFetcher
 from src.ingestion.factory import DataSource, FetcherFactory
 
@@ -29,17 +30,20 @@ class NSEPDFStrategy(DataFetcher):
         self.base_url = "https://www.nseindia.com"
         self.api_url = f"{self.base_url}/api/corporate-announcements"
 
-    async def fetch_company_info(self, ticker: str) -> dict[str, Any]:
+    async def fetch_company_info(self, asset: AssetContext) -> dict[str, Any]:
         """Not applicable for NSE PDF strategy."""
         return {}
 
-    async def fetch_price_history(self, ticker: str) -> dict[str, Any]:
+    async def fetch_price_history(self, asset: AssetContext) -> dict[str, Any]:
         """Not applicable for NSE PDF strategy."""
         return {}
 
-    async def fetch_news(self, ticker: str, company_name: str = "") -> dict[str, Any]:
+    async def fetch_news(self, asset: AssetContext) -> dict[str, Any]:
         """Corporate filings act as our news source for this strategy."""
-        return await self.fetch_data(ticker)
+        if not asset.nse_symbol:
+            logger.info(f"Skipping NSE PDF for {asset.internal_symbol} - No NSE symbol provided.")
+            return {}
+        return await self.fetch_data(asset.nse_symbol)
 
     async def fetch_data(self, target: str) -> dict[str, Any]:
         logger.info(f"Initiating NSE PDF extraction for ticker: {target}")

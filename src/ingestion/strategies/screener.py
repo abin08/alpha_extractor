@@ -1,6 +1,5 @@
 # src/ingestion/strategies/screener.py
 import asyncio
-import re
 from typing import Any
 
 import aiohttp
@@ -9,6 +8,7 @@ from bs4 import BeautifulSoup
 from src.core.config import settings
 from src.core.exceptions import DataParsingError, RateLimitExceeded, SourceOfflineError
 from src.core.logger import get_logger
+from src.domain.models import AssetContext
 from src.ingestion.base import DataFetcher
 from src.ingestion.circuit_breaker import circuit_breaker
 from src.ingestion.factory import DataSource, FetcherFactory
@@ -33,27 +33,21 @@ class ScreenerFetcher(DataFetcher):
         )
     }
 
-    def _clean_ticker(self, ticker: str) -> str:
-        """Removes Yahoo Finance suffixes (.NS, .BO) to match Screener's URL format."""
-        return re.sub(r"\.(NS|BO)$", "", ticker.upper())
-
     @circuit_breaker(source_name="Screener", failure_threshold=3, recovery_timeout=900)
     @with_retry_and_jitter()
-    async def _fetch_html(self, ticker: str) -> str:
-        clean_ticker = self._clean_ticker(ticker)
-
+    async def _fetch_html(self, screener_symbol: str) -> str:
         # Target the consolidated financials page by default
-        url = f"{settings.SCREENER_BASE_URL}{clean_ticker}/consolidated/"
-        fallback_url = f"{settings.SCREENER_BASE_URL}{clean_ticker}/"
+        url = f"{settings.SCREENER_BASE_URL}{screener_symbol}/consolidated/"
+        fallback_url = f"{settings.SCREENER_BASE_URL}{screener_symbol}/"
 
-        logger.info(f"Downloading Screener HTML for {clean_ticker} from {url}")
+        logger.info(f"Downloading Screener HTML for {screener_symbol} from {url}")
         try:
             async with aiohttp.ClientSession(headers=self.HEADERS) as session:
                 async with session.get(url, timeout=15) as response:
                     # Some companies don't have consolidated data, Screener redirects to standalone
                     if response.status == 404 and "consolidated" in url:
                         logger.info(
-                            f"Consolidated not found for {clean_ticker}, "
+                            f"Consolidated not found for {screener_symbol}, "
                             f"falling back to {fallback_url}"
                         )
                         async with session.get(fallback_url, timeout=15) as fallback_resp:
@@ -70,14 +64,17 @@ class ScreenerFetcher(DataFetcher):
         except TimeoutError:
             raise SourceOfflineError(source="Screener")
 
-    def _parse_html_sync(self, html: str, ticker: str) -> dict[str, Any]:
+    def _parse_html_sync(self, html: str, screener_symbol: str) -> dict[str, Any]:
         """Synchronous CPU-bound method to extract data using BeautifulSoup."""
         soup = BeautifulSoup(html, "lxml")
 
         # 1. Verify page structure (Fail-Fast)
         ratios_ul = soup.find("ul", id="top-ratios")
         if not ratios_ul:
-            raise DataParsingError(source="Screener", details=f"Missing ul#top-ratios for {ticker}")
+            raise DataParsingError(
+                source="Screener",
+                details=f"Missing ul#top-ratios for {screener_symbol}",
+            )
 
         # 2. Extract Ratios
         ratios = {}
@@ -99,22 +96,24 @@ class ScreenerFetcher(DataFetcher):
         about_text = about_div.text.strip() if about_div else ""
 
         return {
-            "ticker": ticker,
+            "ticker": screener_symbol,
             "about": about_text,
             "ratios": ratios,
             "pros": pros,
             "cons": cons,
         }
 
-    async def fetch_company_info(self, ticker: str) -> dict[str, Any]:
-        clean_ticker = self._clean_ticker(ticker)
-        html = await self._fetch_html(clean_ticker)
+    async def fetch_company_info(self, asset: AssetContext) -> dict[str, Any]:
+        # Fail-fast if this asset doesn't support Screener
+        if not asset.screener_symbol:
+            logger.info(f"Skipping Screener for {asset.internal_symbol} - No mapping provided.")
+            return {}
 
-        # Offload the heavy HTML parsing to a background thread
-        return await asyncio.to_thread(self._parse_html_sync, html, clean_ticker)
+        html = await self._fetch_html(asset.screener_symbol)
+        return await asyncio.to_thread(self._parse_html_sync, html, asset.screener_symbol)
 
-    async def fetch_price_history(self, ticker: str, period: str = "1mo") -> dict[str, Any]:
-        return {"ticker": ticker, "data": []}
+    async def fetch_price_history(self, asset: AssetContext, period: str = "1mo") -> dict[str, Any]:
+        return {"ticker": asset.screener_symbol, "data": []}
 
-    async def fetch_news(self, ticker: str, company_name: str = "") -> list[dict[str, Any]]:
+    async def fetch_news(self, asset: AssetContext) -> list[dict[str, Any]]:
         return []

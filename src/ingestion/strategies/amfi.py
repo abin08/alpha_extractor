@@ -5,6 +5,7 @@ import aiohttp
 from src.core.config import settings
 from src.core.exceptions import DataParsingError, RateLimitExceeded, SourceOfflineError
 from src.core.logger import get_logger
+from src.domain.models import AssetContext
 from src.ingestion.base import DataFetcher
 from src.ingestion.circuit_breaker import circuit_breaker
 from src.ingestion.factory import DataSource, FetcherFactory
@@ -38,11 +39,17 @@ class AMFIFetcher(DataFetcher):
         except aiohttp.ClientError:
             raise SourceOfflineError(source="AMFI")
 
-    async def fetch_price_history(self, ticker: str, period: str = "latest") -> dict[str, Any]:
+    async def fetch_price_history(
+        self, asset: AssetContext, period: str = "latest"
+    ) -> dict[str, Any]:
         """
         Parses the daily file to find the latest NAV for a specific Scheme Code.
         Maps the NAV to the 'Close' key to maintain compatibility with equities.
         """
+        if not asset.amfi_code:
+            logger.info(f"Skipping AMFI for {asset.internal_symbol} - No AMFI code provided.")
+            return {"ticker": asset.internal_symbol, "data": []}
+
         raw_text = await self._download_amfi_data()
 
         if not raw_text or "Scheme Code" not in raw_text:
@@ -56,10 +63,10 @@ class AMFIFetcher(DataFetcher):
                 continue
 
             parts = line.split(";")
-            if len(parts) >= 6 and parts[0] == ticker:
-                logger.info(f"Found NAV data for Scheme Code: {ticker}")
+            if len(parts) >= 6 and parts[0] == asset.amfi_code:
+                logger.info(f"Found NAV data for Scheme Code: {asset.amfi_code}")
                 return {
-                    "ticker": ticker,
+                    "ticker": asset.internal_symbol,
                     "data": [
                         {
                             "Date": parts[5].strip(),
@@ -68,10 +75,10 @@ class AMFIFetcher(DataFetcher):
                     ],
                 }
 
-        logger.warning(f"Scheme Code {ticker} not found in AMFI data.")
-        return {"ticker": ticker, "data": []}
+        logger.warning(f"Scheme Code {asset.internal_symbol} not found in AMFI data.")
+        return {"ticker": asset.internal_symbol, "data": []}
 
-    async def fetch_company_info(self, ticker: str) -> dict[str, Any]:
+    async def fetch_company_info(self, asset: AssetContext) -> dict[str, Any]:
         """
         Parses the daily file to extract fundamental scheme details.
         """
@@ -87,7 +94,7 @@ class AMFIFetcher(DataFetcher):
                 continue
 
             parts = line.split(";")
-            if len(parts) >= 6 and parts[0] == ticker:
+            if len(parts) >= 6 and parts[0] == asset.internal_symbol:
                 return {
                     "symbol": parts[0].strip(),
                     "isin": parts[1].strip() or parts[2].strip(),  # Use whichever ISIN is available
@@ -97,7 +104,9 @@ class AMFIFetcher(DataFetcher):
 
         return {}
 
-    async def fetch_news(self, ticker: str, company_name: str = "") -> list[dict[str, Any]]:
+    async def fetch_news(self, asset: AssetContext) -> list[dict[str, Any]]:
         """Mutual funds do not have direct news feeds in AMFI. Returns empty list."""
-        logger.debug(f"News requested from AMFI strategy for {ticker}. Returning empty list.")
+        logger.debug(
+            f"News requested from AMFI strategy for {asset.internal_symbol}. Returning empty list."
+        )
         return []

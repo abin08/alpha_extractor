@@ -7,6 +7,7 @@ import feedparser
 from src.core.config import settings
 from src.core.exceptions import RateLimitExceeded, SourceOfflineError
 from src.core.logger import get_logger
+from src.domain.models import AssetContext
 from src.ingestion.base import DataFetcher
 from src.ingestion.circuit_breaker import circuit_breaker
 from src.ingestion.factory import DataSource, FetcherFactory
@@ -19,10 +20,10 @@ logger = get_logger(__name__)
 class RssFeedFetcher(DataFetcher):
     """Asynchronously fetches and parses multiple RSS feeds concurrently."""
 
-    async def fetch_price_history(self, ticker: str, period: str = "1mo") -> dict[str, Any]:
-        return {"ticker": ticker, "data": []}
+    async def fetch_price_history(self, asset: AssetContext, period: str = "1mo") -> dict[str, Any]:
+        return {"ticker": asset.internal_symbol, "data": []}
 
-    async def fetch_company_info(self, ticker: str) -> dict[str, Any]:
+    async def fetch_company_info(self, asset: AssetContext) -> dict[str, Any]:
         return {}
 
     @circuit_breaker(source_name="RSS", failure_threshold=5, recovery_timeout=300)
@@ -46,7 +47,7 @@ class RssFeedFetcher(DataFetcher):
             logger.error(f"Failed to fetch RSS feed {url}: {e}")
             return ""
 
-    async def fetch_news(self, ticker: str, company_name: str = "") -> list[dict[str, Any]]:
+    async def fetch_news(self, asset: AssetContext) -> list[dict[str, Any]]:
         """
         Uses asyncio.gather to pull all RSS feeds simultaneously,
         then parses them and filters articles containing the requested ticker.
@@ -56,12 +57,12 @@ class RssFeedFetcher(DataFetcher):
             xml_responses = await asyncio.gather(*tasks)
 
         articles = []
-        search_terms = [ticker.split(".")[0].lower()]
-        if company_name:
-            search_terms.append(company_name.lower())
+        search_terms = [asset.internal_symbol.split(".")[0].lower()]
+        if asset.company_name:
+            search_terms.append(asset.company_name.lower())
             # Also add the first word of the company name as a fallback
             # (e.g., "Reliance" from "Reliance Industries")
-            first_word = company_name.split()[0].lower()
+            first_word = asset.company_name.split()[0].lower()
             if first_word not in search_terms and len(first_word) > 3:
                 search_terms.append(first_word)
 
@@ -83,7 +84,7 @@ class RssFeedFetcher(DataFetcher):
                 title_lower = title.lower()
                 summary_lower = summary.lower()
 
-                if ticker == "MARKET" or any(
+                if asset.internal_symbol == "MARKET" or any(
                     term in title_lower or term in summary_lower for term in search_terms
                 ):
                     articles.append(
@@ -95,5 +96,7 @@ class RssFeedFetcher(DataFetcher):
                         }
                     )
 
-        logger.info(f"Aggregated {len(articles)} relevant news articles for {ticker}")
+        logger.info(
+            f"Aggregated {len(articles)} relevant news articles for {asset.internal_symbol}"
+        )
         return articles[:50]
