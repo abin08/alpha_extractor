@@ -97,7 +97,7 @@ class AMFIFetcher(DataFetcher):
 
         return {}
 
-    async def fetch_news(self, ticker: str) -> list[dict[str, Any]]:
+    async def fetch_news(self, ticker: str, company_name: str = "") -> list[dict[str, Any]]:
         """Mutual funds do not have direct news feeds in AMFI. Returns empty list."""
         logger.debug(f"News requested from AMFI strategy for {ticker}. Returning empty list.")
         return []

@@ -46,7 +46,7 @@ class RssFeedFetcher(DataFetcher):
             logger.error(f"Failed to fetch RSS feed {url}: {e}")
             return ""
 
-    async def fetch_news(self, ticker: str) -> list[dict[str, Any]]:
+    async def fetch_news(self, ticker: str, company_name: str = "") -> list[dict[str, Any]]:
         """
         Uses asyncio.gather to pull all RSS feeds simultaneously,
         then parses them and filters articles containing the requested ticker.
@@ -56,6 +56,15 @@ class RssFeedFetcher(DataFetcher):
             xml_responses = await asyncio.gather(*tasks)
 
         articles = []
+        search_terms = [ticker.split(".")[0].lower()]
+        if company_name:
+            search_terms.append(company_name.lower())
+            # Also add the first word of the company name as a fallback
+            # (e.g., "Reliance" from "Reliance Industries")
+            first_word = company_name.split()[0].lower()
+            if first_word not in search_terms and len(first_word) > 3:
+                search_terms.append(first_word)
+
         for xml_content in xml_responses:
             if not xml_content:
                 continue
@@ -71,10 +80,11 @@ class RssFeedFetcher(DataFetcher):
                 title = entry.get("title", "")
                 summary = entry.get("summary", "")
 
-                if (
-                    ticker.lower() in title.lower()
-                    or ticker.lower() in summary.lower()
-                    or ticker == "MARKET"
+                title_lower = title.lower()
+                summary_lower = summary.lower()
+
+                if ticker == "MARKET" or any(
+                    term in title_lower or term in summary_lower for term in search_terms
                 ):
                     articles.append(
                         {

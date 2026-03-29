@@ -35,7 +35,7 @@ async def test_fetch_news(mock_get, fetcher):
     mock_get.return_value.__aenter__.return_value = mock_response
 
     # 2. Act
-    result = await fetcher.fetch_news("Reliance")
+    result = await fetcher.fetch_news("Reliance", "Reliance Industries")
 
     # 3. Assert
     assert len(result) == 2  # Assuming 2 RSS URLs fetch the same mock
