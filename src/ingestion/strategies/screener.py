@@ -116,5 +116,5 @@ class ScreenerFetcher(DataFetcher):
     async def fetch_price_history(self, ticker: str, period: str = "1mo") -> dict[str, Any]:
         return {"ticker": ticker, "data": []}
 
-    async def fetch_news(self, ticker: str) -> list[dict[str, Any]]:
+    async def fetch_news(self, ticker: str, company_name: str = "") -> list[dict[str, Any]]:
         return []

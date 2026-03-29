@@ -74,7 +74,7 @@ class YFinanceFetcher(DataFetcher):
 
     @circuit_breaker(source_name="YFinance", failure_threshold=5, recovery_timeout=900)
     @with_retry_and_jitter()
-    async def fetch_news(self, ticker: str) -> list[dict[str, Any]]:
+    async def fetch_news(self, ticker: str, company_name: str = "") -> list[dict[str, Any]]:
         """Asynchronously fetch recent news articles related to the ticker."""
         logger.info(f"Initiating yfinance news fetch for ticker: {ticker}")
         return await asyncio.to_thread(self._get_news_sync, ticker)

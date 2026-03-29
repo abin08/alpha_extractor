@@ -37,7 +37,7 @@ class NSEPDFStrategy(DataFetcher):
         """Not applicable for NSE PDF strategy."""
         return {}
 
-    async def fetch_news(self, ticker: str) -> dict[str, Any]:
+    async def fetch_news(self, ticker: str, company_name: str = "") -> dict[str, Any]:
         """Corporate filings act as our news source for this strategy."""
         return await self.fetch_data(ticker)
 

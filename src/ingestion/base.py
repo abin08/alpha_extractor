@@ -22,6 +22,7 @@ class DataFetcher(ABC):
         pass
 
     @abstractmethod
-    async def fetch_news(self, ticker: str) -> list[dict[str, Any]]:
-        """Fetch unstructured news articles or context for a given ticker."""
+    async def fetch_news(self, ticker: str, company_name: str = "") -> list[dict[str, Any]]:
+        """Fetch unstructured news articles or context for a given ticker
+        and optional company name."""
         pass
