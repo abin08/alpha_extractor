@@ -47,4 +47,4 @@ coverage-html:
 
 .PHONY: test-ingestion
 test-ingestion:
-	uv run python -m scripts.run_ingestion
+	uv run python -m scripts.run_ingestion $(ARGS)

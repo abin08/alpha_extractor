@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import json
 import time
@@ -9,8 +10,14 @@ from src.ingestion.strategies import register_strategies
 
 logger = get_logger("alpha_cli")
 
+DEFAULT_TARGET_TICKER = "HDFCBANK.NS"
+DEFAULT_TARGET_COMPANY_NAME = "HDFC Bank"
+DEFAULT_TARGET_AMFI = "120504"
 
-async def gather_asset_context(ticker: str, amfi_code: str = None) -> dict[str, Any]:
+
+async def gather_asset_context(
+    ticker: str, amfi_code: str = None, company_name: str = ""
+) -> dict[str, Any]:
     """Concurrently fetches all available data for a given asset."""
 
     register_strategies()
@@ -29,7 +36,7 @@ async def gather_asset_context(ticker: str, amfi_code: str = None) -> dict[str, 
     tasks = [
         yf_fetcher.fetch_price_history(ticker, period="1mo"),
         screener_fetcher.fetch_company_info(ticker),
-        rss_fetcher.fetch_news(ticker),
+        rss_fetcher.fetch_news(ticker, company_name),
     ]
 
     # If an AMFI code is provided, fetch mutual fund data too
@@ -56,15 +63,15 @@ async def gather_asset_context(ticker: str, amfi_code: str = None) -> dict[str, 
     return payload
 
 
-async def main():
+async def main(target_ticker=None, target_company_name=None, target_amfi=None):
     start_time = time.time()
 
-    # Let's test with a heavyweight Indian equity and a random AMFI code
-    TARGET_TICKER = "RELIANCE.NS"
-    TARGET_AMFI = "120504"  # Example: Nippon India Growth Fund
+    TARGET_TICKER = target_ticker or DEFAULT_TARGET_TICKER
+    TARGET_COMPANY_NAME = target_company_name or DEFAULT_TARGET_COMPANY_NAME
+    TARGET_AMFI = target_amfi or DEFAULT_TARGET_AMFI
 
     try:
-        final_context = await gather_asset_context(TARGET_TICKER, TARGET_AMFI)
+        final_context = await gather_asset_context(TARGET_TICKER, TARGET_AMFI, TARGET_COMPANY_NAME)
 
         # Print the beautiful, raw data payload
         print("\n" + "=" * 50)
@@ -81,5 +88,35 @@ async def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Run asset context extraction with optional overrides."
+    )
+
+    parser.add_argument(
+        "TARGET_TICKER",
+        nargs="?",
+        default=None,
+        help=f"Ticker symbol (default: {DEFAULT_TARGET_TICKER})",
+    )
+    parser.add_argument(
+        "TARGET_COMPANY_NAME",
+        nargs="?",
+        default=None,
+        help=f'Company name (default: "{DEFAULT_TARGET_COMPANY_NAME}")',
+    )
+    parser.add_argument(
+        "TARGET_AMFI",
+        nargs="?",
+        default=None,
+        help=f"AMFI code (default: {DEFAULT_TARGET_AMFI})",
+    )
+
+    args = parser.parse_args()
     # Ensure Windows compatibility for asyncio if necessary, otherwise standard run
-    asyncio.run(main())
+    asyncio.run(
+        main(
+            target_ticker=args.TARGET_TICKER,
+            target_company_name=args.TARGET_COMPANY_NAME,
+            target_amfi=args.TARGET_AMFI,
+        )
+    )
