@@ -68,8 +68,7 @@ class ContextBuilder:
     def build(cls, raw_payload: dict[str, Any]) -> dict[str, Any]:
         """Sanitizes raw ingestion payload for the LLM context window."""
         logger.info(
-            f"Initiating context sanitization for payload: "
-            f"{raw_payload.get('ticker', 'Unknown')}"
+            f"Initiating context sanitization for payload: {raw_payload.get('ticker', 'Unknown')}"
         )
         sanitized_payload = cls._recursively_clean(raw_payload)
         logger.info("Context sanitization complete.")
