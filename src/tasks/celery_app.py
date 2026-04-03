@@ -26,7 +26,7 @@ celery_app.conf.update(
     # Task module registration (we will uncomment these in AE22 and AE23)
     imports=[
         "src.tasks.workers.ingest_tasks",
-        # "src.tasks.workers.ai_tasks",
+        "src.tasks.workers.ai_tasks",
     ],
 )
 
