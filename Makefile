@@ -51,4 +51,4 @@ test-ingestion:
 
 .PHONY: worker
 worker:
-	uv run celery -A src.tasks.celery_app worker --loglevel=info --concurrency=4
+	uv run celery -A src.tasks.celery_app worker --loglevel=info --pool=threads --concurrency=4
