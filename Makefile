@@ -48,3 +48,7 @@ coverage-html:
 .PHONY: test-ingestion
 test-ingestion:
 	uv run python -m scripts.run_ingestion $(ARGS)
+
+.PHONY: worker
+worker:
+	uv run celery -A src.tasks.celery_app worker --loglevel=info --concurrency=4
