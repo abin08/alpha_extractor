@@ -1,11 +1,15 @@
 import re
+import warnings
 from typing import Any
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
 from src.core.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Suppress the noisy URL warning
+warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
 
 class ContextBuilder:
