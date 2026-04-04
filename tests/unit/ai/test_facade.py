@@ -66,13 +66,18 @@ async def test_generate_brief_success(mock_genai_client):
 
 @pytest.mark.asyncio
 @patch("src.ai.facade.settings.GEMINI_MODEL", "gemini-3.1-flash-lite-preview")
-async def test_generate_brief_validation_error(mock_genai_client):
+@patch("redis.asyncio.from_url")
+async def test_generate_brief_validation_error(mock_redis_from_url, mock_genai_client):
     """
     Simulates the scenario where the LLM returns invalid JSON
     that violates our Pydantic schema.
     Proves that we catch the Pydantic ValidationError
     and convert it into a retryable LLMGenerationError.
     """
+    mock_redis = AsyncMock()
+    mock_redis_from_url.return_value.__aenter__.return_value = mock_redis
+    mock_redis.get.return_value = None
+    mock_redis.incr.return_value = 1
 
     # 1. Generate a real Pydantic ValidationError safely
     class DummySchema(BaseModel):
