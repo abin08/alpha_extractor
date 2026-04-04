@@ -17,9 +17,10 @@ async def dummy_fetch(should_fail=False):
 @pytest.fixture
 def mock_redis():
     """Mocks the Redis client and its async methods."""
-    with patch("src.ingestion.circuit_breaker.get_redis") as mock_get_redis:
+    with patch("redis.asyncio.from_url") as mock_from_url:
         mock_client = AsyncMock()
-        mock_get_redis.return_value = mock_client
+        # This tells Python how to handle the `async with` block
+        mock_from_url.return_value.__aenter__.return_value = mock_client
 
         # Simulate an empty Redis database to start
         mock_client.get.return_value = None

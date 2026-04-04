@@ -12,7 +12,7 @@ async def test_create_target(async_client):
         "is_active": True,
     }
 
-    response = await async_client.post("/targets/", json=payload)
+    response = await async_client.post("/api/v1/targets/", json=payload)
 
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
@@ -29,10 +29,10 @@ async def test_get_all_targets(async_client):
         "identifier": "PPFAS",
         "name": "Parag Parikh",
     }
-    await async_client.post("/targets/", json=payload)
+    await async_client.post("/api/v1/targets/", json=payload)
 
     # Now, fetch them all
-    response = await async_client.get("/targets/")
+    response = await async_client.get("/api/v1/targets/")
 
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
