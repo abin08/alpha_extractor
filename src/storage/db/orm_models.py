@@ -1,8 +1,9 @@
 import enum
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy import Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -48,6 +49,12 @@ class JobRunMetadata(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     status: Mapped[JobStatus] = mapped_column(SQLEnum(JobStatus), default=JobStatus.PENDING)
+
+    celery_task_id: Mapped[str | None] = mapped_column(String(255), index=True)
+    brief_markdown: Mapped[str | None] = mapped_column(Text)
+    raw_response: Mapped[dict | list | None] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql")
+    )
 
     # Where the massive raw context is stored in MinIO/S3
     s3_raw_uri: Mapped[str | None] = mapped_column(String(255))
