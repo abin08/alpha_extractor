@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     REDIS_URL: str | None = None
     UNG_API_URL: str | None = None
     UNG_API_KEY: str | None = None
+    MOCK_UNG_DELIVERY: bool = True
 
     # Ingestion Target URLs
     AMFI_URL: str = "https://www.amfiindia.com/spages/NAVAll.txt"
