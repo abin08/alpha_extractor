@@ -27,6 +27,7 @@ celery_app.conf.update(
     imports=[
         "src.tasks.workers.ingest_tasks",
         "src.tasks.workers.ai_tasks",
+        "src.tasks.workers.delivery_tasks",
     ],
 )
 

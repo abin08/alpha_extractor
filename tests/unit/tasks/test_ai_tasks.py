@@ -67,7 +67,7 @@ async def test_process_ai_brief_success(
 
     # Verify the Repository was called with the exact right data mapped
     mock_repo_instance.save_brief.assert_called_with(
-        target_id=1,
+        ticker="TEST.NS",
         celery_task_id=fake_task_id,
         s3_uri=s3_uri,
         markdown_report="# Fake Markdown Report",

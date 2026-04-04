@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from src.core.logger import get_logger
 from src.domain.models import AssetContext
 from src.tasks.workers.ai_tasks import generate_ai_brief_task
+from src.tasks.workers.delivery_tasks import deliver_ai_brief_task
 from src.tasks.workers.ingest_tasks import ingest_asset_task
 
 logger = get_logger(__name__)
@@ -42,7 +43,11 @@ async def trigger_analysis_pipeline(request: ManualTriggerRequest):
 
     # 2. Build the Celery Canvas Chain
     # The output of Ingestion (S3 URI) is automatically piped to the AI Task
-    pipeline_chain = chain(ingest_asset_task.s(asset.model_dump()), generate_ai_brief_task.s())
+    pipeline_chain = chain(
+        ingest_asset_task.s(asset.model_dump()),
+        generate_ai_brief_task.s(),
+        deliver_ai_brief_task.s(),
+    )
 
     # 3. Dispatch the job asynchronously
     result = pipeline_chain.delay()
