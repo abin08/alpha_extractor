@@ -30,6 +30,7 @@ celery_app.conf.update(
         "src.tasks.workers.ai_tasks",
         "src.tasks.workers.delivery_tasks",
         "src.tasks.workers.scheduler_tasks",
+        "src.tasks.workers.error_tasks",
     ],
     beat_schedule={
         "daily-8am-dispatcher": {
