@@ -10,6 +10,8 @@ import asyncio
 import time
 from typing import Any
 
+from pydantic import ValidationError
+
 from src.core.logger import get_logger
 from src.domain.models import AssetContext
 from src.ingestion.factory import DataSource, FetcherFactory
@@ -110,14 +112,14 @@ def ingest_asset_task(self, asset_dict: dict[str, Any]) -> str:
         logger.info(f"Ingestion task completed successfully. Payload S3 URI: {s3_uri}")
         return s3_uri
 
-    except ValueError as ve:
+    except (ValueError, ValidationError) as ve:
         # 3. Deterministic Error: Do NOT retry.
         # Pydantic validation failed. This will never succeed on a retry.
         logger.error(
             f"FATAL: Invalid payload structure for task {task_id}. "
             f"Failing instantly to trigger DLQ. Error: {ve}"
         )
-        raise  # This bypasses retries and instantly trips the link_error DLQ!
+        raise ValueError(f"Invalid asset payload format: {ve}") from ve
 
     except Exception as exc:
         # 4. Transient/Infrastructural Errors: Eligible for retry.
