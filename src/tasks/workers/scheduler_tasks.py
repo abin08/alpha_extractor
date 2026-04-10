@@ -10,6 +10,7 @@ from src.storage.db.session import AsyncSessionLocal
 from src.tasks.celery_app import celery_app
 from src.tasks.workers.ai_tasks import generate_ai_brief_task
 from src.tasks.workers.delivery_tasks import deliver_ai_brief_task
+from src.tasks.workers.error_tasks import alert_failed_task
 from src.tasks.workers.ingest_tasks import ingest_asset_task
 
 logger = get_logger(__name__)
@@ -50,11 +51,14 @@ async def _dispatch_active_targets() -> int:
                 "is_active": target.is_active,
             }
 
+            # Define the DLQ errback signature
+            errback = alert_failed_task.s()
+
             # Construct the complete extraction/AI/delivery chain
             pipeline = chain(
-                ingest_asset_task.s(asset_payload),
-                generate_ai_brief_task.s(),
-                deliver_ai_brief_task.s(),
+                ingest_asset_task.s(asset_payload).set(link_error=errback),
+                generate_ai_brief_task.s().set(link_error=errback),
+                deliver_ai_brief_task.s().set(link_error=errback),
             )
 
             # Fire and forget into the Redis queue

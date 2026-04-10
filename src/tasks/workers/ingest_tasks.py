@@ -30,12 +30,6 @@ async def _gather_and_upload(asset: AssetContext) -> str:
     If a fetcher completely fails, `asyncio.gather(..., return_exceptions=True)`
     catches the exception gracefully, allowing the rest of the payload to succeed
     rather than crashing the entire ingestion run.
-
-    Args:
-        asset (AssetContext): The Security Master entity containing vendor mappings.
-
-    Returns:
-        str: The S3 URI string pointing to the successfully uploaded JSON payload.
     """
     # 0. Ensure all strategy decorators are executed to register them with the Factory
     register_strategies()
@@ -98,52 +92,49 @@ async def _gather_and_upload(asset: AssetContext) -> str:
     return s3_uri
 
 
-# Celery task configuration:
-# autoretry_for=(Exception,) catches infrastructural failures (like MinIO being offline).
-# retry_backoff=60 uses exponential backoff (retries at 60s, then 120s, then 240s).
-@celery_app.task(
-    name="tasks.ingest_asset",
-    bind=True,
-    max_retries=3,
-    autoretry_for=(Exception,),
-    retry_backoff=60,
-)
+@celery_app.task(name="tasks.ingest_asset", bind=True, max_retries=3)
 def ingest_asset_task(self, asset_dict: dict[str, Any]) -> str:
     """
     Celery worker task that acts as the entry point for Big Data ingestion.
-
-    This function runs in a synchronous worker process but uses `asyncio.run`
-    to boot up a temporary event loop and execute the highly concurrent pipeline.
-
-    Args:
-        asset_dict (dict): A JSON-serializable dictionary representation of an AssetContext.
-
-    Returns:
-        str: The S3 URI pointer to the raw context payload.
     """
+    task_id = self.request.id
     logger.info(f"Received Celery ingestion task for: {asset_dict.get('internal_symbol')}")
 
-    # 1. Rehydrate the strict Pydantic Domain Model from the untyped Celery dictionary
     try:
+        # 1. Rehydrate the strict Pydantic Domain Model from the untyped Celery dictionary
         asset = AssetContext(**asset_dict)
         logger.debug(f"Successfully rehydrated AssetContext for {asset.internal_symbol}.")
-    except Exception as e:
-        logger.error(f"Failed to parse asset dictionary: {e}")
-        raise ValueError(f"Invalid asset payload format: {e}")
 
-    # 2. Bridge the sync Celery world with our async asyncio pipeline
-    try:
-        # Block the Celery worker thread while the async event loop runs
+        # 2. Bridge the sync Celery world with our async asyncio pipeline
         s3_uri = asyncio.run(_gather_and_upload(asset))
         logger.info(f"Ingestion task completed successfully. Payload S3 URI: {s3_uri}")
         return s3_uri
 
-    except Exception as exc:
-        # This catch block handles infrastructural failures (e.g., MinIO network issues).
-        logger.error(f"CRITICAL: Ingestion task failed for {asset.internal_symbol}. Reason: {exc}")
-        logger.warning(
-            f"Celery scheduling retry. Attempt {self.request.retries + 1}/{self.max_retries}..."
+    except ValueError as ve:
+        # 3. Deterministic Error: Do NOT retry.
+        # Pydantic validation failed. This will never succeed on a retry.
+        logger.error(
+            f"FATAL: Invalid payload structure for task {task_id}. "
+            f"Failing instantly to trigger DLQ. Error: {ve}"
         )
-        # Note: Celery automatically handles the retry via autoretry_for,
-        # but explicitly raising allows the exception to propagate to the queue.
-        raise
+        raise  # This bypasses retries and instantly trips the link_error DLQ!
+
+    except Exception as exc:
+        # 4. Transient/Infrastructural Errors: Eligible for retry.
+        if self.request.retries >= self.max_retries:
+            logger.critical(
+                f"CRITICAL: Max retries exhausted for task {task_id}. Final Error: {exc}",
+                exc_info=True,
+            )
+            raise exc
+
+        # Execute surgical retry with exponential backoff (30s, 60s, 120s)
+        backoff_delay = 30 * (2**self.request.retries)
+
+        logger.warning(
+            f"Transient failure in task {task_id}. "
+            f"Retrying in {backoff_delay}s ({self.request.retries + 1}/{self.max_retries}). "
+            f"Error: {exc}"
+        )
+
+        raise self.retry(exc=exc, countdown=backoff_delay)
