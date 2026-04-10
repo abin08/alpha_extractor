@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 
 from src.core.config import settings
 
@@ -17,7 +18,7 @@ celery_app.conf.update(
     result_serializer="json",
     # Timezone settings (Aligning with NSE market hours)
     timezone="Asia/Kolkata",
-    enable_utc=True,
+    enable_utc=False,
     # Resilience & Resource Tuning
     task_acks_late=True,  # Acknowledge task ONLY after successful completion
     task_reject_on_worker_lost=True,  # Re-queue tasks if a worker container crashes
@@ -28,7 +29,15 @@ celery_app.conf.update(
         "src.tasks.workers.ingest_tasks",
         "src.tasks.workers.ai_tasks",
         "src.tasks.workers.delivery_tasks",
+        "src.tasks.workers.scheduler_tasks",
     ],
+    beat_schedule={
+        "daily-8am-dispatcher": {
+            "task": "tasks.dispatch_daily_pipeline",
+            "schedule": crontab(hour=settings.SCHEDULER_HOUR, minute=settings.SCHEDULER_MINUTE),
+            "args": (),
+        }
+    },
 )
 
 

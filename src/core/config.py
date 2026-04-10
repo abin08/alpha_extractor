@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     S3_SECRET_KEY: str = "minioadmin"
     S3_BUCKET_NAME: str = "alpha-extractor-raw"
 
+    # Scheduler Configuration
+    SCHEDULER_HOUR: int = 8
+    SCHEDULER_MINUTE: int = 0
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
