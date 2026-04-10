@@ -1,5 +1,3 @@
-import os
-
 import httpx
 
 from src.core.config import settings
@@ -33,16 +31,8 @@ class UNGClient:
         if self.is_mock:
             logger.info(
                 f"[MOCK UNG] Simulating delivery for {ticker}. "
-                f"Length: {len(markdown_payload)} chars."
+                f"Length: {len(markdown_payload)} chars. (File generation disabled)"
             )
-
-            # Let's write it to a local file so you can actually see the output!
-            os.makedirs("deliveries", exist_ok=True)
-            file_path = f"deliveries/{ticker}_mock_delivery.md"
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(markdown_payload)
-
-            logger.debug(f"[MOCK UNG] Payload written to {file_path}")
             return True
 
         # THE REAL HTTP CALL
