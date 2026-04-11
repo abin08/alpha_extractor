@@ -1,3 +1,20 @@
+## 0.5.0 (2026-04-11)
+
+### Feat
+
+- **dlq**: implement dead letter queue alerting via UNG (#50)
+- **scheduler**: implement celery beat master dispatcher (#48)
+- **delivery**: integrate UNG client and resolve async db pooling (AE25) (#47)
+- **database**: AE34-database-orm(#46)
+- **ai**: fimplement AI processing worker task (#43)
+- **orchestration**: implement IngestionWorkerTask and MinIO payload storage pattern (#42)
+- **orchestration**: configure Celery app and Redis broker backend (#41)
+- **ingestion**: AE35 add NSE corporate announcements PDF extraction strategy (#38)
+
+### Refactor
+
+- **ingestion**: implement AssetContext DTO to unify vendor mappings (#40)
+
 ## 0.4.0 (2026-03-27)
 
 ### Feat
