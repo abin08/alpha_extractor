@@ -59,3 +59,12 @@ class LLMGenerationError(AlphaExtractorError):
     def __init__(self, reason: str):
         self.reason = reason
         super().__init__(f"LLM generation failed safely: {reason}")
+
+
+class ResolutionError(AlphaExtractorError):
+    """Raised when the Resolution Engine cannot find valid vendor symbols for an asset."""
+
+    def __init__(self, identifier: str, reason: str):
+        self.identifier = identifier
+        self.reason = reason
+        super().__init__(f"Failed to resolve symbols for '{identifier}': {reason}")
