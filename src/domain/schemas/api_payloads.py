@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.storage.db.orm_models import AssetType
+from src.storage.db.orm_models import AssetType, TargetStatus
 
 
 class TargetBase(BaseModel):
@@ -22,6 +22,7 @@ class TargetResponse(TargetBase):
     """Payload returned to the client, including database-generated fields."""
 
     id: int
+    status: TargetStatus
 
     # This tells Pydantic to read the data from SQLAlchemy ORM models
     model_config = ConfigDict(from_attributes=True)

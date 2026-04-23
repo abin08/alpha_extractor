@@ -2,9 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_db
+from src.core.logger import get_logger
 from src.domain.schemas.api_payloads import TargetCreate, TargetResponse
 from src.storage.db.repositories.target_repo import TargetRepository
+from src.tasks.workers.resolution_tasks import resolve_asset_symbols_task
 
+logger = get_logger(__name__)
 router = APIRouter(prefix="/targets", tags=["Target Configuration"])
 
 
@@ -15,17 +18,35 @@ async def list_targets(db: AsyncSession = Depends(get_db)):
     return await repo.get_all()
 
 
-@router.post("/", response_model=TargetResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=TargetResponse, status_code=status.HTTP_202_ACCEPTED)
 async def add_target(target: TargetCreate, db: AsyncSession = Depends(get_db)):
-    """Add a new equity or mutual fund to the tracking list."""
+    """Add a new equity or mutual fund and queue it for symbol resolution."""
     repo = TargetRepository(db)
     db_obj = await repo.create(target)
 
     if not db_obj:
+        # Structured Logging for the failure
+        logger.warning(
+            "Attempted to create duplicate target",
+            extra={
+                "extra_data": {
+                    "identifier": target.identifier,
+                    "asset_type": target.asset_type.value,
+                }
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Target with identifier '{target.identifier}' already exists.",
         )
+
+    # Dispatch the background resolution task
+    logger.info(
+        "Target created. Dispatching resolution task.",
+        extra={"extra_data": {"target_id": db_obj.id, "identifier": db_obj.identifier}},
+    )
+    resolve_asset_symbols_task.delay(db_obj.id)
+
     return db_obj
 
 
@@ -36,4 +57,8 @@ async def remove_target(target_id: int, db: AsyncSession = Depends(get_db)):
     success = await repo.delete(target_id)
 
     if not success:
+        logger.warning(
+            "Attempted to delete non-existent target",
+            extra={"extra_data": {"target_id": target_id}},
+        )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target not found.")
