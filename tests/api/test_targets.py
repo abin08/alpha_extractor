@@ -32,7 +32,8 @@ async def test_create_target(mock_delay, async_client):
 
 
 @pytest.mark.asyncio
-async def test_get_all_targets(async_client):
+@patch("src.api.routes.target_config.resolve_asset_symbols_task.delay")
+async def test_get_all_targets(mock_delay, async_client):
     """Test that we can retrieve a list of targets."""
     # First, inject a target
     payload = {
