@@ -19,6 +19,13 @@ class AssetType(enum.StrEnum):
     MUTUAL_FUND = "MUTUAL_FUND"
 
 
+class TargetStatus(enum.StrEnum):
+    PENDING_RESOLUTION = "PENDING_RESOLUTION"
+    ACTIVE = "ACTIVE"
+    MANUAL_INTERVENTION = "MANUAL_INTERVENTION"
+    FAILED = "FAILED"
+
+
 class JobStatus(enum.StrEnum):
     PENDING = "PENDING"
     IN_PROGRESS = "IN_PROGRESS"
@@ -34,11 +41,47 @@ class TargetConfig(Base):
     identifier: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     name: Mapped[str | None] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    status: Mapped[TargetStatus] = mapped_column(
+        SQLEnum(TargetStatus),
+        default=TargetStatus.PENDING_RESOLUTION,
+        server_default="PENDING_RESOLUTION",
+        nullable=False,
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     ai_insights: Mapped[list["AIBriefResult"]] = relationship(back_populates="target")
+    vendor_mapping: Mapped["AssetVendorMapping"] = relationship(
+        back_populates="target", uselist=False, cascade="all, delete-orphan"
+    )
+
+
+class AssetVendorMapping(Base):
+    __tablename__ = "asset_vendor_mapping"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    # unique=True enforces the strict 1-to-1 relationship at the DB level
+    target_id: Mapped[int] = mapped_column(
+        ForeignKey("target_configs.id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
+
+    yfinance_symbol: Mapped[str | None] = mapped_column(String(50))
+    screener_symbol: Mapped[str | None] = mapped_column(String(50))
+    nse_symbol: Mapped[str | None] = mapped_column(String(50))
+    amfi_code: Mapped[str | None] = mapped_column(String(50))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    # Relationship
+    target: Mapped["TargetConfig"] = relationship(back_populates="vendor_mapping")
 
 
 class JobRunMetadata(Base):
