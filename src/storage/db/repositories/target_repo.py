@@ -1,11 +1,12 @@
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.domain.schemas.api_payloads import TargetCreate
-from src.storage.db.orm_models import TargetConfig
+from src.storage.db.orm_models import AssetVendorMapping, TargetConfig, TargetStatus
 
 
 class TargetRepository:
@@ -41,3 +42,36 @@ class TargetRepository:
             await self.session.commit()
             return True
         return False
+
+    async def get_by_id(self, target_id: int) -> TargetConfig | None:
+        """Fetch a target by ID, eager-loading its vendor mapping."""
+        stmt = (
+            select(TargetConfig)
+            .where(TargetConfig.id == target_id)
+            .options(selectinload(TargetConfig.vendor_mapping))
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def update_status(self, target_id: int, status: TargetStatus) -> bool:
+        """Update the lifecycle status of a target."""
+        stmt = update(TargetConfig).where(TargetConfig.id == target_id).values(status=status)
+        await self.session.execute(stmt)
+        await self.session.commit()
+        return True
+
+    async def save_vendor_mapping(
+        self, target_id: int, mapping_data: dict
+    ) -> AssetVendorMapping | None:
+        """Insert the resolved vendor routing symbols for a target safely."""
+        mapping = AssetVendorMapping(target_id=target_id, **mapping_data)
+        self.session.add(mapping)
+        try:
+            await self.session.commit()
+            await self.session.refresh(mapping)
+            return mapping
+        except IntegrityError:
+            # If the mapping already exists due to a partial previous run, roll back
+            # and ignore the error so the orchestrator can proceed to update the status.
+            await self.session.rollback()
+            return None
