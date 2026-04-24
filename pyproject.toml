@@ -1,6 +1,6 @@
 [project]
 name = "alpha_extractor"
-version = "0.6.0"
+version = "0.6.1"
 description = "AI-driven financial sentiment extraction pipeline"
 requires-python = ">=3.12"
 dependencies = [
@@ -41,7 +41,7 @@ dev = [
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.6.0"
+version = "0.6.1"
 version_files = [
     "pyproject.toml:version"
 ]
