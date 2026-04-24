@@ -6,6 +6,7 @@ from src.core.exceptions import ResolutionError
 from src.tasks.workers.resolution_strategies import (
     _sanitize_ticker,
     resolve_equity_symbols,
+    resolve_mutual_fund_symbols,
 )
 
 
@@ -101,3 +102,64 @@ async def test_resolve_equity_screener_no_match(mock_client_class):
     # Execute & Assert
     with pytest.raises(ResolutionError, match="No exact match found on Screener"):
         await resolve_equity_symbols("RELIANCE")
+
+
+DUMMY_AMFI_DATA = """
+Scheme Code;ISIN Div Payout/ISIN Growth;ISIN Div Reinvestment;Scheme Name;Net Asset Value;Date
+122594;INF204KB1613;-;Parag Parikh Flexi Cap Fund - Direct Plan - Growth;75.50;23-Apr-2024
+122595;INF204KB1621;-;Parag Parikh Flexi Cap Fund - Regular Plan - Growth;70.10;23-Apr-2024
+119062;INF174KA1LK2;-;SBI Small Cap Fund - Direct Plan - Growth;150.25;23-Apr-2024
+"""
+
+
+@pytest.fixture
+def mock_amfi_client():
+    """Provides a mocked httpx client that returns our dummy AMFI text data."""
+    with patch("src.tasks.workers.resolution_strategies.httpx.AsyncClient") as mock_client_class:
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client_class.return_value = mock_client
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = DUMMY_AMFI_DATA
+        mock_client.get.return_value = mock_resp
+
+        yield mock_client
+
+
+@pytest.mark.asyncio
+async def test_resolve_mf_exact_code_match(mock_amfi_client):
+    """Test that providing the exact 6-digit scheme code works."""
+    result = await resolve_mutual_fund_symbols("122594")
+    assert result["amfi_code"] == "122594"
+
+
+@pytest.mark.asyncio
+async def test_resolve_mf_exact_isin_match(mock_amfi_client):
+    """Test that providing the exact ISIN code works."""
+    result = await resolve_mutual_fund_symbols("INF174KA1LK2")
+    assert result["amfi_code"] == "119062"
+
+
+@pytest.mark.asyncio
+async def test_resolve_mf_single_name_match(mock_amfi_client):
+    """Test that a partial name matching exactly ONE fund works."""
+    # "SBI Small Cap" only appears once in our dummy data
+    result = await resolve_mutual_fund_symbols("SBI Small Cap")
+    assert result["amfi_code"] == "119062"
+
+
+@pytest.mark.asyncio
+async def test_resolve_mf_ambiguous_match(mock_amfi_client):
+    """Test that a generic name matching multiple variants raises an error."""
+    # "Parag Parikh Flexi Cap" matches both Direct and Regular in our dummy data
+    with pytest.raises(ResolutionError, match="Ambiguous identifier. Found 2 funds"):
+        await resolve_mutual_fund_symbols("Parag Parikh Flexi Cap")
+
+
+@pytest.mark.asyncio
+async def test_resolve_mf_no_match(mock_amfi_client):
+    """Test that a garbage identifier raises a standard ResolutionError."""
+    with pytest.raises(ResolutionError, match="No mutual fund found matching"):
+        await resolve_mutual_fund_symbols("NON_EXISTENT_FUND")

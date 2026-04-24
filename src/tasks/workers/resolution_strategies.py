@@ -156,6 +156,70 @@ async def resolve_equity_symbols(identifier: str) -> dict:
 
 async def resolve_mutual_fund_symbols(identifier: str) -> dict:
     """
-    STUB: Will hold the logic to resolve AMFI codes for Mutual Funds.
+    Resolves a mutual fund identifier (ISIN, Scheme Code, or Name) to an exact AMFI code.
+    Enforces strict matching to prevent tracking the wrong variant (e.g., Regular vs Direct).
     """
-    return {"amfi_code": f"STUB_{identifier}"}
+    clean_id = identifier.strip().upper()
+    url = settings.AMFI_URL
+
+    # 1. Fetch the daily AMFI master list
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.get(url)
+        response.raise_for_status()
+        raw_text = response.text
+
+    matches = []
+
+    # 2. Iterate through the semicolon-delimited file
+    for line in raw_text.splitlines():
+        # Skip empty lines or headers
+        if not line or line.startswith("Scheme Code") or ";" not in line:
+            continue
+
+        parts = line.split(";")
+        if len(parts) < 4:
+            continue
+
+        scheme_code = parts[0].strip()
+        isin_div = parts[1].strip().upper()
+        isin_reinv = parts[2].strip().upper()
+        scheme_name = parts[3].strip().upper()
+
+        # 3. FAST PATH: Exact ISIN or Scheme Code match
+        if clean_id in (scheme_code, isin_div, isin_reinv):
+            logger.info(
+                "Exact ISIN/Code match found in AMFI data",
+                extra={"extra_data": {"scheme_code": scheme_code}},
+            )
+            return {"amfi_code": scheme_code}
+
+        # 4. SLOW PATH: Partial Name Match
+        if clean_id in scheme_name:
+            matches.append({"code": scheme_code, "name": scheme_name})
+
+    # 5. Evaluate Partial Matches
+    if not matches:
+        raise ResolutionError(
+            identifier,
+            f"No mutual fund found matching '{identifier}' in AMFI database.",
+        )
+
+    if len(matches) > 1:
+        # Extract matched names to show in the error for easier debugging
+        matched_names = [m["name"] for m in matches[:3]]
+        suffix = "..." if len(matches) > 3 else ""
+
+        raise ResolutionError(
+            identifier,
+            f"Ambiguous identifier. Found {len(matches)} funds matching '{identifier}' "
+            f"(e.g., {', '.join(matched_names)}{suffix}). "
+            f"Please provide the exact ISIN or 6-digit AMFI Scheme Code to ensure accuracy.",
+        )
+
+    # Exactly one partial match found
+    resolved_code = matches[0]["code"]
+    logger.info(
+        "Exact single name match found in AMFI data",
+        extra={"extra_data": {"scheme_code": resolved_code}},
+    )
+    return {"amfi_code": resolved_code}
