@@ -37,8 +37,8 @@ class ScreenerFetcher(DataFetcher):
     @with_retry_and_jitter()
     async def _fetch_html(self, screener_symbol: str) -> str:
         # Target the consolidated financials page by default
-        url = f"{settings.SCREENER_BASE_URL}{screener_symbol}/consolidated/"
-        fallback_url = f"{settings.SCREENER_BASE_URL}{screener_symbol}/"
+        url = f"{settings.SCREENER_BASE_URL}/company/{screener_symbol}/consolidated/"
+        fallback_url = f"{settings.SCREENER_BASE_URL}/company/{screener_symbol}/"
 
         logger.info(f"Downloading Screener HTML for {screener_symbol} from {url}")
         try:
