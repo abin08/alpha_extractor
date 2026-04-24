@@ -20,7 +20,8 @@ class Settings(BaseSettings):
         "https://www.moneycontrol.com/rss/business.xml",
         "https://www.livemint.com/rss/markets",
     ]
-    SCREENER_BASE_URL: str = "https://www.screener.in/company/"
+    SCREENER_BASE_URL: str = "https://www.screener.in"
+    YFINANCE_BASE_URL: str = "https://query2.finance.yahoo.com"
 
     # S3 / MinIO Storage Configuration
     S3_ENDPOINT_URL: str = "http://localhost:9000"
