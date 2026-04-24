@@ -12,6 +12,10 @@ env:
   # This dynamically builds the URL using the secrets you saved in AE28
   IMAGE_NAME: ${{ secrets.OCI_NAMESPACE }}/alpha-extractor/api
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  CHART_PATH: deploy/helm/alpha-extractor
+  CHART_NAME: alpha-extractor
+  HELM_REGISTRY_REPO: oci://hyd.ocir.io/${{ secrets.OCI_NAMESPACE }}/helm
+      
 
 jobs:
   test:
@@ -103,11 +107,8 @@ jobs:
       runs-on: ubuntu-latest
       # Only run on tags like v0.2.0
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-      env:
-        CHART_PATH: deploy/helm/alpha-extractor
-        CHART_NAME: alpha-extractor
-        HELM_REGISTRY_REPO: oci://${{ env.REGISTRY }}/${{ secrets.OCI_NAMESPACE }}/helm
       steps:
+      
         - name: Checkout repository
           uses: actions/checkout@v4
 
@@ -138,7 +139,7 @@ jobs:
           run: helm package "$CHART_PATH" --destination .
 
         - name: Login to OCI Helm Registry
-          run: echo "${{ secrets.OCI_AUTH_TOKEN }}" | helm registry login "${{ env.REGISTRY }}" -u "${{ secrets.OCI_USERNAME }}" --password-stdin
+          run: echo "${{ secrets.OCI_AUTH_TOKEN }}" | helm registry login "$REGISTRY" -u "${{ secrets.OCI_USERNAME }}" --password-stdin
 
         - name: Push Helm chart to OCI
           shell: bash
