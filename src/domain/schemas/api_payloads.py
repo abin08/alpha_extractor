@@ -26,3 +26,12 @@ class TargetResponse(TargetBase):
 
     # This tells Pydantic to read the data from SQLAlchemy ORM models
     model_config = ConfigDict(from_attributes=True)
+
+
+class VendorMappingUpdate(BaseModel):
+    """Payload for manually updating vendor routing symbols. All fields optional."""
+
+    yfinance_symbol: str | None = Field(None, max_length=50, description="Yahoo Finance symbol")
+    screener_symbol: str | None = Field(None, max_length=50, description="Screener.in URL slug")
+    nse_symbol: str | None = Field(None, max_length=50, description="NSE official symbol")
+    amfi_code: str | None = Field(None, max_length=50, description="AMFI Mutual Fund code")

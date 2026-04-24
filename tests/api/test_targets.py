@@ -52,3 +52,39 @@ async def test_get_all_targets(mock_delay, async_client):
     assert data[0]["identifier"] == "PPFAS"
     # Verify the GET request also exposes the status
     assert data[0]["status"] == "PENDING_RESOLUTION"
+
+
+@pytest.mark.asyncio
+@patch("src.api.routes.target_config.resolve_asset_symbols_task.delay")
+async def test_manual_update_vendor_mapping_success(mock_delay, async_client):
+    """Test that an admin can manually patch symbols and rescue a target to ACTIVE."""
+    # 1. Create a "stuck" target
+    payload = {
+        "asset_type": "EQUITY",
+        "identifier": "STUCK.NS",
+        "name": "Stuck Corp",
+    }
+    create_resp = await async_client.post("/api/v1/targets/", json=payload)
+    target_id = create_resp.json()["id"]
+
+    # 2. Hit the backdoor to patch the mapping
+    patch_payload = {"screener_symbol": "STUCK_CORP_NEW", "yfinance_symbol": "STUCK.NS"}
+    response = await async_client.patch(f"/api/v1/targets/{target_id}/mapping", json=patch_payload)
+
+    # 3. Assertions
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["id"] == target_id
+
+    # CRITICAL: The endpoint must have flipped the state to ACTIVE
+    assert data["status"] == "ACTIVE"
+
+
+@pytest.mark.asyncio
+async def test_manual_update_vendor_mapping_not_found(async_client):
+    """Test that trying to patch a non-existent target returns a 404."""
+    patch_payload = {"screener_symbol": "GHOST"}
+    response = await async_client.patch("/api/v1/targets/99999/mapping", json=patch_payload)
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["detail"] == "Target not found."
