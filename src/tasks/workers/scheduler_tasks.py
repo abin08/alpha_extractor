@@ -3,9 +3,10 @@ import asyncio
 
 from celery import chain
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from src.core.logger import get_logger
-from src.storage.db.orm_models import TargetConfig
+from src.storage.db.orm_models import TargetConfig, TargetStatus
 from src.storage.db.session import AsyncSessionLocal
 from src.tasks.celery_app import celery_app
 from src.tasks.workers.ai_tasks import generate_ai_brief_task
@@ -22,8 +23,13 @@ async def _dispatch_active_targets() -> int:
     and queues up an independent Celery chain for each one.
     """
     async with AsyncSessionLocal() as session:
-        # 1. Fetch only active targets from the database
-        stmt = select(TargetConfig).where(TargetConfig.is_active)
+        # 1. Fetch only fully ACTIVE targets and eager-load their vendor mappings
+        stmt = (
+            select(TargetConfig)
+            .where(TargetConfig.is_active)
+            .where(TargetConfig.status == TargetStatus.ACTIVE)
+            .options(selectinload(TargetConfig.vendor_mapping))
+        )
         result = await session.scalars(stmt)
         active_targets = result.all()
 
@@ -37,18 +43,23 @@ async def _dispatch_active_targets() -> int:
     # 2. Iterate and trigger the pipeline for each target
     for target in active_targets:
         try:
-            # Reconstruct the payload dictionary expected by ingest_asset_task
-            # CRITICAL FIX: Translate DB fields to match Pydantic's AssetContext schema
+            # 3. Defensive Guardrail: Ensure mapping exists
+            if not target.vendor_mapping:
+                logger.error(
+                    f"Data anomaly: Target {target.identifier} is ACTIVE but \
+                      missing vendor mapping! Skipping.",
+                    extra={"extra_data": {"target_id": target.id}},
+                )
+                continue
+
+            # 4. Exact Payload Rehydration matching AssetContext Pydantic Model
             asset_payload = {
-                "id": target.id,
-                "asset_type": (
-                    target.asset_type.value
-                    if hasattr(target.asset_type, "value")
-                    else target.asset_type
-                ),
-                "internal_symbol": target.identifier,  # MAP 'identifier' -> 'internal_symbol'
-                "company_name": target.name,  # MAP 'name' -> 'company_name'
-                "is_active": target.is_active,
+                "internal_symbol": target.identifier,
+                "company_name": target.name or target.identifier,  # Fallback to ID if name is None
+                "yfinance_symbol": target.vendor_mapping.yfinance_symbol,
+                "screener_symbol": target.vendor_mapping.screener_symbol,
+                "nse_symbol": target.vendor_mapping.nse_symbol,
+                "amfi_code": target.vendor_mapping.amfi_code,
             }
 
             # Define the DLQ errback signature
@@ -63,12 +74,14 @@ async def _dispatch_active_targets() -> int:
 
             # Fire and forget into the Redis queue
             pipeline.apply_async()
-            logger.info(f"Successfully queued pipeline chain for: {target.identifier}")
+            logger.info(
+                f"Successfully queued pipeline chain for: {target.identifier}",
+                extra={"extra_data": {"internal_symbol": target.identifier}},
+            )
             dispatched_count += 1
 
         except Exception as e:
             # If one target fails to queue (e.g., bad data), we log it and CONTINUE.
-            # We must not let one broken asset stop the rest from running.
             logger.error(
                 f"Failed to queue pipeline for target {target.identifier}: {e}",
                 exc_info=True,
