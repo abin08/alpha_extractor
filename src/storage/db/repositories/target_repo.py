@@ -75,3 +75,25 @@ class TargetRepository:
             # and ignore the error so the orchestrator can proceed to update the status.
             await self.session.rollback()
             return None
+
+    async def upsert_vendor_mapping(self, target_id: int, mapping_data: dict) -> AssetVendorMapping:
+        """
+        Admin override: Insert or update the vendor routing symbols for a target.
+        """
+        # 1. Check if a mapping already exists
+        stmt = select(AssetVendorMapping).where(AssetVendorMapping.target_id == target_id)
+        result = await self.session.execute(stmt)
+        mapping = result.scalar_one_or_none()
+
+        if mapping:
+            # 2a. Update existing row safely
+            for key, value in mapping_data.items():
+                setattr(mapping, key, value)
+        else:
+            # 2b. Create new row if the automated resolver completely failed initially
+            mapping = AssetVendorMapping(target_id=target_id, **mapping_data)
+            self.session.add(mapping)
+
+        await self.session.commit()
+        await self.session.refresh(mapping)
+        return mapping

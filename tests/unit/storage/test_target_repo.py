@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.schemas.api_payloads import AssetType, TargetCreate
-from src.storage.db.orm_models import TargetConfig
+from src.storage.db.orm_models import AssetVendorMapping, TargetConfig
 from src.storage.db.repositories.target_repo import TargetRepository
 
 
@@ -123,3 +123,50 @@ async def test_delete_target_not_found(mock_session):
     assert deleted is False
     mock_session.delete.assert_not_called()
     mock_session.commit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_upsert_vendor_mapping_insert_new(mock_session):
+    """Test that upsert creates a new mapping if none exists."""
+    repo = TargetRepository(mock_session)
+
+    # Mock finding NO existing mapping
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalar_one_or_none.return_value = None
+    mock_session.execute.return_value = mock_execute_result
+
+    mapping_data = {"yfinance_symbol": "NEW_YF.NS", "screener_symbol": "NEW_SCR"}
+    result = await repo.upsert_vendor_mapping(1, mapping_data)
+
+    # Assert it created a new object
+    mock_session.add.assert_called_once()
+    mock_session.commit.assert_called_once()
+    mock_session.refresh.assert_called_once()
+    assert result.yfinance_symbol == "NEW_YF.NS"
+    assert result.target_id == 1
+
+
+@pytest.mark.asyncio
+async def test_upsert_vendor_mapping_update_existing(mock_session):
+    """Test that upsert safely patches an existing mapping without dropping fields."""
+    repo = TargetRepository(mock_session)
+
+    # Pre-existing mapping in the DB
+    existing_mapping = AssetVendorMapping(id=5, target_id=2, yfinance_symbol="OLD_YF.NS")
+
+    # Mock finding the existing mapping
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalar_one_or_none.return_value = existing_mapping
+    mock_session.execute.return_value = mock_execute_result
+
+    # Admin only sends the screener symbol
+    mapping_data = {"screener_symbol": "FIXED_SCR"}
+    result = await repo.upsert_vendor_mapping(2, mapping_data)
+
+    # Assert it DID NOT create a new row
+    mock_session.add.assert_not_called()
+    mock_session.commit.assert_called_once()
+
+    # Assert attributes merged perfectly
+    assert result.yfinance_symbol == "OLD_YF.NS"  # Existing untouched
+    assert result.screener_symbol == "FIXED_SCR"  # New added
