@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.storage.db.orm_models import AssetType, TargetStatus
@@ -35,3 +37,14 @@ class VendorMappingUpdate(BaseModel):
     screener_symbol: str | None = Field(None, max_length=50, description="Screener.in URL slug")
     nse_symbol: str | None = Field(None, max_length=50, description="NSE official symbol")
     amfi_code: str | None = Field(None, max_length=50, description="AMFI Mutual Fund code")
+
+
+class JobStatusResponse(BaseModel):
+    """Response payload for Celery job status tracking."""
+
+    task_id: str = Field(..., description="The Celery Task/Chain ID")
+    status: str = Field(
+        ..., description="Current state of the job (e.g., PENDING, SUCCESS, FAILURE)"
+    )
+    result: Any | None = Field(None, description="The final result if successful")
+    error_message: str | None = Field(None, description="Sanitized error details if the job failed")

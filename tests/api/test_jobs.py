@@ -44,3 +44,52 @@ async def test_trigger_pipeline_success(mock_chain, async_client):
     # Verify that Celery was actually called to build the chain
     mock_chain.assert_called_once()
     mock_pipeline.delay.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("src.api.routes.jobs.AsyncResult")
+async def test_get_job_status_success(mock_async_result_class, async_client):
+    """Test that a successful job returns its result cleanly."""
+
+    # 1. Setup the AsyncResult mock
+    mock_result_instance = MagicMock()
+    mock_result_instance.state = "SUCCESS"
+    mock_result_instance.result = "Delivered RELIANCE.NS"
+    mock_async_result_class.return_value = mock_result_instance
+
+    # 2. Execute Request
+    response = await async_client.get("/api/v1/jobs/fake-task-123/status")
+
+    # 3. Assertions
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+
+    assert data["task_id"] == "fake-task-123"
+    assert data["status"] == "SUCCESS"
+    assert data["result"] == "Delivered RELIANCE.NS"
+    assert data["error_message"] is None
+
+
+@pytest.mark.asyncio
+@patch("src.api.routes.jobs.AsyncResult")
+async def test_get_job_status_failure(mock_async_result_class, async_client):
+    """Test that a failed job safely sanitizes and exposes the error message."""
+
+    # 1. Setup the AsyncResult mock with a simulated Exception
+    mock_result_instance = MagicMock()
+    mock_result_instance.state = "FAILURE"
+    mock_result_instance.info = Exception("RateLimitExceeded: Screener blocked request")
+    mock_async_result_class.return_value = mock_result_instance
+
+    # 2. Execute Request
+    response = await async_client.get("/api/v1/jobs/fake-task-999/status")
+
+    # 3. Assertions
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+
+    assert data["task_id"] == "fake-task-999"
+    assert data["status"] == "FAILURE"
+    assert data["result"] is None
+    # Verify the exception was converted to a safe string
+    assert data["error_message"] == "RateLimitExceeded: Screener blocked request"
