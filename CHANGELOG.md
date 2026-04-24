@@ -1,3 +1,18 @@
+## 0.6.0 (2026-04-24)
+
+### Feat
+
+- **api**: add job status tracking endpoint for celery observability (#59)
+- **api**: add manual vendor mapping fallback endpoint (#58)
+- **scheduler**: route active targets with vendor mappings in daily dispatcher (#57)
+- **orchestrator**: implement resolution orchestrator and state machine (#55)
+- **api**: refactor targets POST endpoint to trigger resolution engine (#53)
+- **db**: implement security master mapping and target lifecycle (#52)
+
+### Fix
+
+- **api-tests**: mock celery task in get_all_targets setup (#54)
+
 ## 0.5.0 (2026-04-11)
 
 ### Feat
