@@ -1,3 +1,13 @@
+## v0.8.1 (2026-04-25)
+
+### Feat
+
+- **delivery**: integrate UNG email notification payload and markdown conversion (#63)
+
+### Fix
+
+- **Helm**: increase celery beat memory limits
+
 ## v0.8.0 (2026-04-25)
 
 ### Feat
