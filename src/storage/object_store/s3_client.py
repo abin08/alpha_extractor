@@ -10,7 +10,7 @@ logger = get_logger(__name__)
 
 
 class AsyncS3Client:
-    """Handles asynchronous interactions with S3/MinIO for massive context payloads."""
+    """Handles asynchronous interactions with S3/MinIO/OCI for massive context payloads."""
 
     def __init__(self):
         self.session = aioboto3.Session()
@@ -27,17 +27,22 @@ class AsyncS3Client:
 
     async def upload_json(self, data: dict[str, Any], key: str) -> str:
         """Serializes a dict to JSON and uploads it to S3. Returns the S3 URI."""
-        json_body = json.dumps(data)
+
+        # 1. Convert to bytes for accurate length calculation
+        json_bytes = json.dumps(data).encode("utf-8")
+        payload_length = len(json_bytes)
+
         s3_uri = f"s3://{self.bucket}/{key}"
 
-        logger.info(f"Uploading context payload to {s3_uri}")
+        logger.info(f"Uploading context payload to {s3_uri} ({payload_length} bytes)")
 
         async with self.session.client(**self.client_kwargs) as client:
             await client.put_object(
                 Bucket=self.bucket,
                 Key=key,
-                Body=json_body,
+                Body=json_bytes,
                 ContentType="application/json",
+                ContentLength=payload_length,  # <--- The OCI Fix
             )
 
         return s3_uri
