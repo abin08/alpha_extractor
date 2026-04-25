@@ -35,7 +35,7 @@ class AsyncS3Client:
         )
 
         # Extract region dynamically from OCI URL (e.g., ap-mumbai-1) to satisfy s3v4
-        region = "us-east-1"
+        region = "ap-hyderabad-1"
         if self.endpoint_url and "objectstorage." in self.endpoint_url:
             try:
                 region = self.endpoint_url.split("objectstorage.")[1].split(".")[0]
@@ -66,6 +66,7 @@ class AsyncS3Client:
                 Key=key,
                 Body=json_bytes,
                 ContentType="application/json",
+                ContentLength=len(json_bytes),
             )
 
         return s3_uri
