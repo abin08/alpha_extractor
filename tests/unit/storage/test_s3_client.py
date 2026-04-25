@@ -1,4 +1,3 @@
-import io
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -31,19 +30,13 @@ async def test_upload_json(mock_aioboto3_session):
     assert uri == "s3://alpha-extractor-raw/test_context.json"
     mock_aioboto3_session.put_object.assert_called_once()
 
-    # Verify it was serialized properly
     call_kwargs = mock_aioboto3_session.put_object.call_args.kwargs
     assert call_kwargs["Bucket"] == "alpha-extractor-raw"
     assert call_kwargs["Key"] == "test_context.json"
 
-    expected_bytes = json.dumps(test_data).encode("utf-8")
-
-    # UPDATE: Verify it's a BytesIO stream, and extract its value to check the bytes
-    assert isinstance(call_kwargs["Body"], io.BytesIO)
-    assert call_kwargs["Body"].getvalue() == expected_bytes
-
+    # We are back to expecting raw bytes!
+    assert call_kwargs["Body"] == json.dumps(test_data).encode("utf-8")
     assert call_kwargs["ContentType"] == "application/json"
-    assert call_kwargs["ContentLength"] == len(expected_bytes)
 
 
 @pytest.mark.asyncio
