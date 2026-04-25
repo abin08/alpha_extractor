@@ -83,6 +83,12 @@
 - **db**: AE04 configure async sqlalchemy session and initialize alembic (#4)
 - **core**: AE03 implement structured JSON logger and custom exception hierarchy (#3)
 
+## v0.7.1 (2026-04-25)
+
+### Fix
+
+- **ci**: Updated Celery tasks path in container command (#62)
+
 ## v0.7.0 (2026-04-25)
 
 ### Feat
