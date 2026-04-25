@@ -1,3 +1,9 @@
+## v0.8.4 (2026-04-25)
+
+### Fix
+
+- **storage**: wrap OCI S3 payloads in BytesIO and add module docstrings
+
 ## v0.8.3 (2026-04-25)
 
 ## v0.8.2 (2026-04-25)
