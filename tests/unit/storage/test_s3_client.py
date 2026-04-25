@@ -34,8 +34,15 @@ async def test_upload_json(mock_aioboto3_session):
     call_kwargs = mock_aioboto3_session.put_object.call_args.kwargs
     assert call_kwargs["Bucket"] == "alpha-extractor-raw"
     assert call_kwargs["Key"] == "test_context.json"
-    assert call_kwargs["Body"] == json.dumps(test_data)
+
+    # UPDATE 1: We now expect raw bytes, not a string
+    expected_bytes = json.dumps(test_data).encode("utf-8")
+    assert call_kwargs["Body"] == expected_bytes
+
     assert call_kwargs["ContentType"] == "application/json"
+
+    # UPDATE 2: Verify our new OCI compatibility fix is present
+    assert call_kwargs["ContentLength"] == len(expected_bytes)
 
 
 @pytest.mark.asyncio
