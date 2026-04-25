@@ -1,3 +1,4 @@
+import io
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -35,13 +36,13 @@ async def test_upload_json(mock_aioboto3_session):
     assert call_kwargs["Bucket"] == "alpha-extractor-raw"
     assert call_kwargs["Key"] == "test_context.json"
 
-    # UPDATE 1: We now expect raw bytes, not a string
     expected_bytes = json.dumps(test_data).encode("utf-8")
-    assert call_kwargs["Body"] == expected_bytes
+
+    # UPDATE: Verify it's a BytesIO stream, and extract its value to check the bytes
+    assert isinstance(call_kwargs["Body"], io.BytesIO)
+    assert call_kwargs["Body"].getvalue() == expected_bytes
 
     assert call_kwargs["ContentType"] == "application/json"
-
-    # UPDATE 2: Verify our new OCI compatibility fix is present
     assert call_kwargs["ContentLength"] == len(expected_bytes)
 
 
