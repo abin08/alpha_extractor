@@ -27,6 +27,7 @@ dependencies = [
     "lxml>=6.0.2",
     "aioboto3>=15.5.0",
     "pypdf>=6.9.2",
+    "markdown>=3.10.2",
 ]
 
 [project.optional-dependencies]
