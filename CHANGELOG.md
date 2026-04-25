@@ -1,3 +1,9 @@
+## v0.8.6 (2026-04-25)
+
+### Fix
+
+- **storage**: fix content length error
+
 ## v0.8.5 (2026-04-25)
 
 ### Fix

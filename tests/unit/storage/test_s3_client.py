@@ -37,6 +37,7 @@ async def test_upload_json(mock_aioboto3_session):
     # We are back to expecting raw bytes!
     assert call_kwargs["Body"] == json.dumps(test_data).encode("utf-8")
     assert call_kwargs["ContentType"] == "application/json"
+    assert call_kwargs["ContentLength"] == len(json.dumps(test_data).encode("utf-8"))
 
 
 @pytest.mark.asyncio
