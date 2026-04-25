@@ -1,3 +1,9 @@
+## v0.8.2 (2026-04-25)
+
+### Fix
+
+- **storage**: explicit content-length for OCI S3 compatibility
+
 ## v0.8.1 (2026-04-25)
 
 ### Feat
