@@ -27,7 +27,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           # Override the default API command to start the Celery Beat scheduler
-          command: ["uv", "run", "celery", "-A", "src.worker.celery_app", "beat", "--loglevel=INFO"]
+          command: ["uv", "run", "celery", "-A", "src.tasks.celery_app", "beat", "--loglevel=INFO"]
           envFrom:
             - secretRef:
                 name: {{ .Values.env.secretName }}
