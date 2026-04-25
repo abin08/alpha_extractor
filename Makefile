@@ -14,6 +14,7 @@ lint:
 	uvx ruff format src tests
 
 commit:
+	DATABASE_URL="sqlite+aiosqlite:///:memory:" uv run pytest -v
 	uv run cz commit
 
 clean:
