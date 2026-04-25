@@ -1,3 +1,9 @@
+## v0.8.5 (2026-04-25)
+
+### Fix
+
+- **storage**: force path-style addressing for OCI S3 compatibility
+
 ## v0.8.4 (2026-04-25)
 
 ### Fix
