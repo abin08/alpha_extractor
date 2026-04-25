@@ -1,3 +1,9 @@
+## v0.8.0 (2026-04-25)
+
+### Feat
+
+- **delivery**: integrate UNG email notification payload and markdown conversion
+
 ## v0.7.1 (2026-04-25)
 
 ### Fix
