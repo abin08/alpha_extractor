@@ -1,3 +1,9 @@
+## v0.8.8 (2026-04-26)
+
+### Fix
+
+- **storage**: fix oci object storage content length header issue
+
 ## v0.8.7 (2026-04-25)
 
 ### Fix
