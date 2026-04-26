@@ -1,3 +1,9 @@
+## v0.8.9 (2026-04-26)
+
+### Fix
+
+- **celery**: import resolution_tasks to celery app
+
 ## v0.8.8 (2026-04-26)
 
 ### Fix
