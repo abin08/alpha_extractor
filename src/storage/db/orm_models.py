@@ -51,7 +51,9 @@ class TargetConfig(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    ai_insights: Mapped[list["AIBriefResult"]] = relationship(back_populates="target")
+    ai_insights: Mapped[list["AIBriefResult"]] = relationship(
+        back_populates="target", cascade="all, delete-orphan"
+    )
     vendor_mapping: Mapped["AssetVendorMapping"] = relationship(
         back_populates="target", uselist=False, cascade="all, delete-orphan"
     )
