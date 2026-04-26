@@ -1,3 +1,9 @@
+## v0.8.10 (2026-04-26)
+
+### Fix
+
+- **db**: add cascade to ai_insights relationship (#64)
+
 ## v0.8.9 (2026-04-26)
 
 ### Fix
