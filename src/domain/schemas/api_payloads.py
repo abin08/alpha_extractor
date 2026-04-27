@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from src.storage.db.orm_models import AssetType, TargetStatus
 
@@ -68,3 +68,20 @@ class TargetCreateResponse(TargetResponse):
     """Payload returned specifically after target creation, including the background task ID."""
 
     resolution_task_id: str | None = Field(None, description="Celery Task ID for symbol resolution")
+
+
+class RecipientCreate(BaseModel):
+    """Payload for adding a new email recipient."""
+
+    email: EmailStr = Field(..., description="Email address of the recipient")
+
+
+class RecipientResponse(BaseModel):
+    """Payload returned for a notification recipient."""
+
+    id: int
+    email: EmailStr
+    is_active: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
