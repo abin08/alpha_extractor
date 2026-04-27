@@ -25,23 +25,25 @@ def mock_db_session():
 @patch("src.tasks.workers.delivery_tasks.UNGClient")
 async def test_process_delivery_success(mock_ung_class, mock_db_session):
     """Test 1: Verifies correct database extraction and UNG Client dispatch."""
-    # Arrange
-    # The async function calls session.scalar() twice.
-    # 1st call: Fetch JobRun. 2nd call: Fetch Ticker.
+
     mock_job = MockJobRun("# Bullish Market Update")
     mock_db_session.scalar.side_effect = [mock_job, "RELIANCE.NS"]
 
-    # Setup the mocked UNG Client instance
+    # Mock the return for session.scalars().all() for the emails
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = ["trader_one@alpha.com", "analyst@alpha.com"]
+    mock_db_session.scalars.return_value = mock_scalars
+
     mock_ung_instance = mock_ung_class.return_value
     mock_ung_instance.dispatch_brief = AsyncMock()
 
-    # Act
     result = await _process_delivery(job_run_id=7)
 
-    # Assert
-    assert result == "Delivered RELIANCE.NS"
+    assert result == "Delivered RELIANCE.NS to 2 recipients"
     mock_ung_instance.dispatch_brief.assert_called_once_with(
-        ticker="RELIANCE.NS", markdown_payload="# Bullish Market Update"
+        ticker="RELIANCE.NS",
+        markdown_payload="# Bullish Market Update",
+        recipients=["trader_one@alpha.com", "analyst@alpha.com"],
     )
 
 

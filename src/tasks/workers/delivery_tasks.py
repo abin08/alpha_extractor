@@ -5,7 +5,12 @@ from sqlalchemy import select
 
 from src.core.logger import get_logger
 from src.delivery.ung_client import UNGClient
-from src.storage.db.orm_models import AIBriefResult, JobRunMetadata, TargetConfig
+from src.storage.db.orm_models import (
+    AIBriefResult,
+    JobRunMetadata,
+    NotificationRecipient,
+    TargetConfig,
+)
 from src.storage.db.session import AsyncSessionLocal
 from src.tasks.celery_app import celery_app
 
@@ -25,7 +30,6 @@ async def _process_delivery(job_run_id: int) -> str:
             raise ValueError(f"Invalid JobRun state for ID: {job_run_id}")
 
         # 2. Relational Join to get the Target Ticker
-        # We join AIBriefResult -> TargetConfig to find the ticker name
         stmt_ticker = (
             select(TargetConfig.identifier)
             .join(AIBriefResult, AIBriefResult.target_id == TargetConfig.id)
@@ -34,11 +38,24 @@ async def _process_delivery(job_run_id: int) -> str:
         )
         ticker = await session.scalar(stmt_ticker) or "UNKNOWN_ASSET"
 
-    # 3. Dispatch via UNG Client
-    client = UNGClient()
-    await client.dispatch_brief(ticker=ticker, markdown_payload=job_run.brief_markdown)
+        # 3. Fetch Dynamic Delivery Route
+        stmt_recipients = select(NotificationRecipient.email).where(NotificationRecipient.is_active)
+        result = await session.scalars(stmt_recipients)
+        active_emails = result.all()
 
-    return f"Delivered {ticker}"
+    if not active_emails:
+        logger.warning(f"No active email recipients configured. Skipping delivery for {ticker}.")
+        return f"Skipped {ticker} (no recipients)"
+
+    # 4. Dispatch via UNG Client
+    client = UNGClient()
+    await client.dispatch_brief(
+        ticker=ticker,
+        markdown_payload=job_run.brief_markdown,
+        recipients=list(active_emails),
+    )
+
+    return f"Delivered {ticker} to {len(active_emails)} recipients"
 
 
 # We tell Celery to automatically retry if it encounters an httpx network error!

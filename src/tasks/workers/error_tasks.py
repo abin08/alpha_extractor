@@ -1,8 +1,12 @@
 import asyncio
 from datetime import datetime
 
+from sqlalchemy import select
+
 from src.core.logger import get_logger
 from src.delivery.ung_client import UNGClient
+from src.storage.db.orm_models import NotificationRecipient
+from src.storage.db.session import AsyncSessionLocal
 from src.tasks.celery_app import celery_app
 
 logger = get_logger(__name__)
@@ -32,9 +36,23 @@ async def _dispatch_error_alert(
         f"---\n"
         f"> *Action Required: Please check the worker container logs for the full stack trace.*"
     )
+    async with AsyncSessionLocal() as session:
+        stmt = select(NotificationRecipient.email).where(NotificationRecipient.is_active)
+        result = await session.scalars(stmt)
+        active_emails = result.all()
 
-    # We use "DLQ_ALERT" as the ticker name so it's easily identifiable in the logs/deliveries
-    await client.dispatch_brief(ticker="DLQ_ALERT", markdown_payload=markdown_payload)
+    if not active_emails:
+        logger.error(
+            f"DLQ Alert for {task_id} generated, but NO ACTIVE EMAILS configured to receive it!"
+        )
+        return
+
+    # Pass the dynamic recipients
+    await client.dispatch_brief(
+        ticker="DLQ_ALERT",
+        markdown_payload=markdown_payload,
+        recipients=list(active_emails),
+    )
 
 
 @celery_app.task(name="tasks.alert_failed_task", ignore_result=True)
