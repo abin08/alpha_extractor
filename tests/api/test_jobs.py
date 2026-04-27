@@ -100,15 +100,21 @@ async def test_get_job_status_failure(mock_async_result_class, async_client):
 async def test_trigger_daily_dispatcher_success(mock_delay, async_client):
     """Test that an admin can manually trigger the overarching daily dispatcher."""
 
-    # Execute an empty POST request
+    # 1. Setup the mock to return an object with an 'id' attribute
+    mock_result = MagicMock()
+    mock_result.id = "dispatcher-task-id-777"
+    mock_delay.return_value = mock_result
+
+    # 2. Execute an empty POST request
     response = await async_client.post("/api/v1/jobs/trigger-daily-dispatcher")
 
-    # Assert correct status code
+    # 3. Assert correct status code
     assert response.status_code == status.HTTP_202_ACCEPTED
 
-    # Assert exact message payload returned
+    # 4. Assert exact message payload returned
     data = response.json()
     assert data["message"] == "Daily dispatcher initiated. Fanning out to all active targets."
+    assert data["task_id"] == "dispatcher-task-id-777"
 
-    # Verify the Celery task was actually queued
+    # 5. Verify the Celery task was actually queued
     mock_delay.assert_called_once()

@@ -71,10 +71,13 @@ async def trigger_daily_dispatcher():
     """
     logger.info("API Request received to manually trigger the daily dispatcher.")
 
-    # Fire the Celery beat task directly
-    dispatch_daily_pipeline_task.delay()
+    # Capture the AsyncResult returned by Celery
+    result = dispatch_daily_pipeline_task.delay()
 
-    return {"message": "Daily dispatcher initiated. Fanning out to all active targets."}
+    return {
+        "message": "Daily dispatcher initiated. Fanning out to all active targets.",
+        "task_id": str(result.id),
+    }
 
 
 @router.get(
