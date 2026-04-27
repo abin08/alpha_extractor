@@ -97,3 +97,9 @@ class TargetRepository:
         await self.session.commit()
         await self.session.refresh(mapping)
         return mapping
+
+    async def get_vendor_mapping(self, target_id: int) -> AssetVendorMapping | None:
+        """Fetch only the vendor routing symbols for a specific target."""
+        stmt = select(AssetVendorMapping).where(AssetVendorMapping.target_id == target_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()

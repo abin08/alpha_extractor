@@ -88,3 +88,44 @@ async def test_manual_update_vendor_mapping_not_found(async_client):
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json()["detail"] == "Target not found."
+
+
+@pytest.mark.asyncio
+@patch("src.api.routes.target_config.resolve_asset_symbols_task.delay")
+async def test_get_vendor_mapping_success(mock_delay, async_client):
+    """Test that a client can successfully fetch an existing vendor mapping."""
+    # 1. Create a target
+    payload = {
+        "asset_type": "EQUITY",
+        "identifier": "GETMAP.NS",
+        "name": "Get Map Corp",
+    }
+    create_resp = await async_client.post("/api/v1/targets/", json=payload)
+    target_id = create_resp.json()["id"]
+
+    # 2. Patch a mapping so it exists in the database
+    patch_payload = {"yfinance_symbol": "GETMAP.NS", "screener_symbol": "GETMAP"}
+    await async_client.patch(f"/api/v1/targets/{target_id}/mapping", json=patch_payload)
+
+    # 3. GET the mapping using our new endpoint
+    response = await async_client.get(f"/api/v1/targets/{target_id}/mapping")
+
+    # 4. Assertions
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["yfinance_symbol"] == "GETMAP.NS"
+    assert data["screener_symbol"] == "GETMAP"
+    assert "updated_at" in data  # Ensure our datetime field serialized correctly
+
+
+@pytest.mark.asyncio
+async def test_get_vendor_mapping_not_found(async_client):
+    """Test that fetching a mapping for a non-existent or pending target returns a 404."""
+    # Try fetching a mapping for an ID that definitely does not exist
+    response = await async_client.get("/api/v1/targets/99999/mapping")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert (
+        response.json()["detail"]
+        == "Vendor mapping not found or target is still pending resolution."
+    )
