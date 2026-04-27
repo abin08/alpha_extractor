@@ -10,6 +10,7 @@ from src.tasks.celery_app import celery_app
 from src.tasks.workers.ai_tasks import generate_ai_brief_task
 from src.tasks.workers.delivery_tasks import deliver_ai_brief_task
 from src.tasks.workers.ingest_tasks import ingest_asset_task
+from src.tasks.workers.scheduler_tasks import dispatch_daily_pipeline_task
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/jobs", tags=["Pipeline Jobs"])
@@ -61,6 +62,19 @@ async def trigger_analysis_pipeline(request: ManualTriggerRequest):
         "message": f"Pipeline triggered for {asset.internal_symbol}",
         "chain_id": str(result.id),
     }
+
+
+@router.post("/trigger-daily-dispatcher", status_code=status.HTTP_202_ACCEPTED)
+async def trigger_daily_dispatcher():
+    """
+    Manually triggers the overarching morning fan-out pipeline for all ACTIVE targets.
+    """
+    logger.info("API Request received to manually trigger the daily dispatcher.")
+
+    # Fire the Celery beat task directly
+    dispatch_daily_pipeline_task.delay()
+
+    return {"message": "Daily dispatcher initiated. Fanning out to all active targets."}
 
 
 @router.get(
