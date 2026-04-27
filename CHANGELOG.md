@@ -1,3 +1,9 @@
+## v0.12.3 (2026-04-27)
+
+### Fix
+
+- **ai**: add rate limiting to celery task generate_ai_brief_task
+
 ## v0.12.2 (2026-04-27)
 
 ### Fix
