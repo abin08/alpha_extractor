@@ -1,3 +1,9 @@
+## v0.12.1 (2026-04-27)
+
+### Feat
+
+- **api**: add manual override for daily dispatcher (#70)
+
 ## v0.12.0 (2026-04-27)
 
 ### Feat
