@@ -12,7 +12,7 @@ def mock_settings():
     with patch("src.delivery.ung_client.settings") as mock_set:
         mock_set.UNG_API_URL = "https://api.fake-ung.com/v1/notify"
         mock_set.UNG_API_KEY = "test_super_secret_key"
-        mock_set.UNG_EMAIL_RECIPIENTS = ["trader_one@alpha.com", "analyst@alpha.com"]
+        # config.py no longer holds the emails!
         yield mock_set
 
 
@@ -23,7 +23,7 @@ async def test_dispatch_brief_mock_bypass(mock_settings):
     client = UNGClient()
 
     with patch("src.delivery.ung_client.httpx.AsyncClient") as mock_httpx_class:
-        result = await client.dispatch_brief("TEST.NS", "# Markdown Report")
+        result = await client.dispatch_brief("TEST.NS", "# Markdown Report", ["test@test.com"])
 
     assert result is True
     mock_httpx_class.assert_not_called()
@@ -43,7 +43,8 @@ async def test_dispatch_brief_success(mock_httpx_class, mock_settings):
 
     mock_httpx_class.return_value.__aenter__.return_value = mock_httpx_instance
 
-    result = await client.dispatch_brief("TEST.NS", "# Markdown Report")
+    recipients = ["trader_one@alpha.com", "analyst@alpha.com"]
+    result = await client.dispatch_brief("TEST.NS", "# Markdown Report", recipients)
 
     assert result is True
     mock_httpx_instance.post.assert_called_once_with(
@@ -53,12 +54,11 @@ async def test_dispatch_brief_success(mock_httpx_class, mock_settings):
             "recipient": {"to": ["trader_one@alpha.com", "analyst@alpha.com"]},
             "content": {
                 "subject": "🦅 Alpha Extractor: TEST.NS Brief",
-                # Verify Markdown converted '# Header' to '<h1>Header</h1>'
                 "html_body": "<h1>Markdown Report</h1>",
             },
             "metadata": {
                 "source_service": "alpha-extractor",
-                "trace_id": ANY,  # Matches dynamic UUID generated in the payload
+                "trace_id": ANY,
             },
         },
         headers={"X-API-Key": "test_super_secret_key"},
@@ -85,7 +85,7 @@ async def test_dispatch_brief_http_error(mock_httpx_class, mock_settings):
     mock_httpx_class.return_value.__aenter__.return_value = mock_httpx_instance
 
     with pytest.raises(httpx.HTTPStatusError):
-        await client.dispatch_brief("TEST.NS", "# Markdown Report")
+        await client.dispatch_brief("TEST.NS", "# Markdown Report", ["test@test.com"])
 
 
 @pytest.mark.asyncio
@@ -102,4 +102,4 @@ async def test_dispatch_brief_network_error(mock_httpx_class, mock_settings):
     mock_httpx_class.return_value.__aenter__.return_value = mock_httpx_instance
 
     with pytest.raises(httpx.RequestError):
-        await client.dispatch_brief("TEST.NS", "# Markdown Report")
+        await client.dispatch_brief("TEST.NS", "# Markdown Report", ["test@test.com"])

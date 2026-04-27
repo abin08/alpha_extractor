@@ -20,21 +20,23 @@ class UNGClient:
         # Auth Update: Using X-API-Key per the new spec
         self.headers = {"X-API-Key": settings.UNG_API_KEY} if settings.UNG_API_KEY else {}
         self.is_mock = settings.MOCK_UNG_DELIVERY
-        self.recipients = settings.UNG_EMAIL_RECIPIENTS
 
-    async def dispatch_brief(self, ticker: str, markdown_payload: str) -> bool:
+    async def dispatch_brief(
+        self, ticker: str, markdown_payload: str, recipients: list[str]
+    ) -> bool:
         """
         Converts the AI Markdown payload to HTML and dispatches it to the UNG endpoint.
+        Requires a dynamic list of recipients from the database.
         """
         if self.is_mock:
             logger.info(
-                f"[MOCK UNG] Simulating delivery for {ticker}. "
+                f"[MOCK UNG] Simulating delivery for {ticker} to {recipients}. "
                 f"Length: {len(markdown_payload)} chars. (Email generation disabled)"
             )
             return True
 
-        if not self.recipients:
-            logger.warning(f"Skipping delivery for {ticker}: No UNG_EMAIL_RECIPIENTS configured.")
+        if not recipients:
+            logger.warning(f"Skipping delivery for {ticker}: No recipients provided.")
             return False
 
         if not self.url or not self.headers.get("X-API-Key"):
@@ -49,12 +51,12 @@ class UNGClient:
             raise
 
         # 2. Generate trace ID for log tracking across microservices
-        trace_id = f"alpha-email-{uuid.uuid4()}"
+        trace_id = f"alpha-extractor-email-{uuid.uuid4()}"
 
         # 3. Construct the nested payload
         payload = {
             "channel": "email",
-            "recipient": {"to": self.recipients},
+            "recipient": {"to": recipients},
             "content": {
                 "subject": f"🦅 Alpha Extractor: {ticker} Brief",
                 "html_body": html_content,
