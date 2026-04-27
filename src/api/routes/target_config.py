@@ -5,6 +5,7 @@ from src.api.dependencies import get_db
 from src.core.logger import get_logger
 from src.domain.schemas.api_payloads import (
     TargetCreate,
+    TargetCreateResponse,
     TargetResponse,
     VendorMappingResponse,
     VendorMappingUpdate,
@@ -24,7 +25,7 @@ async def list_targets(db: AsyncSession = Depends(get_db)):
     return await repo.get_all()
 
 
-@router.post("/", response_model=TargetResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post("/", response_model=TargetCreateResponse, status_code=status.HTTP_202_ACCEPTED)
 async def add_target(target: TargetCreate, db: AsyncSession = Depends(get_db)):
     """Add a new equity or mutual fund and queue it for symbol resolution."""
     repo = TargetRepository(db)
@@ -46,14 +47,26 @@ async def add_target(target: TargetCreate, db: AsyncSession = Depends(get_db)):
             detail=f"Target with identifier '{target.identifier}' already exists.",
         )
 
-    # Dispatch the background resolution task
+    # Dispatch the background resolution task and capture the result
+    task = resolve_asset_symbols_task.delay(db_obj.id)
+
     logger.info(
         "Target created. Dispatching resolution task.",
-        extra={"extra_data": {"target_id": db_obj.id, "identifier": db_obj.identifier}},
+        extra={
+            "extra_data": {
+                "target_id": db_obj.id,
+                "identifier": db_obj.identifier,
+                "task_id": str(task.id),
+            }
+        },
     )
-    resolve_asset_symbols_task.delay(db_obj.id)
 
-    return db_obj
+    # Build the enhanced response model by validating the ORM object
+    # and injecting the Celery task ID
+    response_data = TargetCreateResponse.model_validate(db_obj)
+    response_data.resolution_task_id = str(task.id)
+
+    return response_data
 
 
 @router.delete("/{target_id}", status_code=status.HTTP_204_NO_CONTENT)
