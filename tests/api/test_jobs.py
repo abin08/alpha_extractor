@@ -93,3 +93,22 @@ async def test_get_job_status_failure(mock_async_result_class, async_client):
     assert data["result"] is None
     # Verify the exception was converted to a safe string
     assert data["error_message"] == "RateLimitExceeded: Screener blocked request"
+
+
+@pytest.mark.asyncio
+@patch("src.api.routes.jobs.dispatch_daily_pipeline_task.delay")
+async def test_trigger_daily_dispatcher_success(mock_delay, async_client):
+    """Test that an admin can manually trigger the overarching daily dispatcher."""
+
+    # Execute an empty POST request
+    response = await async_client.post("/api/v1/jobs/trigger-daily-dispatcher")
+
+    # Assert correct status code
+    assert response.status_code == status.HTTP_202_ACCEPTED
+
+    # Assert exact message payload returned
+    data = response.json()
+    assert data["message"] == "Daily dispatcher initiated. Fanning out to all active targets."
+
+    # Verify the Celery task was actually queued
+    mock_delay.assert_called_once()
