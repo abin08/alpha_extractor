@@ -6,6 +6,7 @@ from src.core.logger import get_logger
 from src.domain.schemas.api_payloads import (
     TargetCreate,
     TargetResponse,
+    VendorMappingResponse,
     VendorMappingUpdate,
 )
 from src.storage.db.orm_models import TargetStatus
@@ -67,6 +68,31 @@ async def remove_target(target_id: int, db: AsyncSession = Depends(get_db)):
             extra={"extra_data": {"target_id": target_id}},
         )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target not found.")
+
+
+@router.get(
+    "/{target_id}/mapping",
+    response_model=VendorMappingResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_vendor_mapping(target_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Retrieve the resolved vendor symbols for a specific target.
+    """
+    repo = TargetRepository(db)
+    mapping = await repo.get_vendor_mapping(target_id)
+
+    if not mapping:
+        logger.warning(
+            "Vendor mapping requested but not found. Target might be pending or failed.",
+            extra={"extra_data": {"target_id": target_id}},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vendor mapping not found or target is still pending resolution.",
+        )
+
+    return mapping
 
 
 @router.patch(

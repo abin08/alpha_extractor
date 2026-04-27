@@ -170,3 +170,37 @@ async def test_upsert_vendor_mapping_update_existing(mock_session):
     # Assert attributes merged perfectly
     assert result.yfinance_symbol == "OLD_YF.NS"  # Existing untouched
     assert result.screener_symbol == "FIXED_SCR"  # New added
+
+
+@pytest.mark.asyncio
+async def test_get_vendor_mapping_success(mock_session):
+    """Test retrieving a vendor mapping successfully."""
+    repo = TargetRepository(mock_session)
+
+    # Mock finding an existing mapping
+    mock_mapping = AssetVendorMapping(id=1, target_id=2, yfinance_symbol="TCS.NS")
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalar_one_or_none.return_value = mock_mapping
+    mock_session.execute.return_value = mock_execute_result
+
+    result = await repo.get_vendor_mapping(2)
+
+    assert result is not None
+    assert result.yfinance_symbol == "TCS.NS"
+    mock_session.execute.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_vendor_mapping_not_found(mock_session):
+    """Test retrieving a vendor mapping that does not exist."""
+    repo = TargetRepository(mock_session)
+
+    # Mock finding NO mapping
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalar_one_or_none.return_value = None
+    mock_session.execute.return_value = mock_execute_result
+
+    result = await repo.get_vendor_mapping(999)
+
+    assert result is None
+    mock_session.execute.assert_called_once()
