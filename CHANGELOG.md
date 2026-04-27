@@ -1,3 +1,9 @@
+## v0.10.0 (2026-04-27)
+
+### Feat
+
+- **api**: return celery task id on target creation
+
 ## v0.9.0 (2026-04-27)
 
 ## v0.8.10 (2026-04-26)

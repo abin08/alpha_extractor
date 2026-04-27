@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import status
@@ -9,6 +9,12 @@ from fastapi import status
 @patch("src.api.routes.target_config.resolve_asset_symbols_task.delay")
 async def test_create_target(mock_delay, async_client):
     """Test that we can successfully add a new target config and trigger resolution."""
+
+    # 1. Setup mock to simulate Celery returning an AsyncResult
+    mock_task = MagicMock()
+    mock_task.id = "fake-celery-task-id-1234"
+    mock_delay.return_value = mock_task
+
     payload = {
         "asset_type": "EQUITY",
         "identifier": "RELIANCE.NS",
@@ -18,14 +24,16 @@ async def test_create_target(mock_delay, async_client):
 
     response = await async_client.post("/api/v1/targets/", json=payload)
 
-    # EXPECT 202 ACCEPTED
+    # 2. EXPECT 202 ACCEPTED
     assert response.status_code == status.HTTP_202_ACCEPTED
     data = response.json()
 
     assert data["identifier"] == "RELIANCE.NS"
     assert "id" in data
-    # ASSERT DEFAULT DB STATE IS EXPOSED
     assert data["status"] == "PENDING_RESOLUTION"
+
+    # 3. VERIFY THE NEW TASK ID FIELD IS PRESENT
+    assert data["resolution_task_id"] == "fake-celery-task-id-1234"
 
     # VERIFY THE BACKGROUND TASK WAS DISPATCHED WITH THE NEW DB ID
     mock_delay.assert_called_once_with(data["id"])

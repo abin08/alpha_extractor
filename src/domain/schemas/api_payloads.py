@@ -62,3 +62,9 @@ class VendorMappingResponse(BaseModel):
 
     # This tells Pydantic to read the data from SQLAlchemy ORM models
     model_config = ConfigDict(from_attributes=True)
+
+
+class TargetCreateResponse(TargetResponse):
+    """Payload returned specifically after target creation, including the background task ID."""
+
+    resolution_task_id: str | None = Field(None, description="Celery Task ID for symbol resolution")
