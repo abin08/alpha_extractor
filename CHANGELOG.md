@@ -1,3 +1,9 @@
+## v0.12.0 (2026-04-27)
+
+### Feat
+
+- **api**: add recipient crud api endpoints and tests (#68)
+
 ## v0.11.0 (2026-04-27)
 
 ### Feat
