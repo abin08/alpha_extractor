@@ -1,3 +1,9 @@
+## v0.12.2 (2026-04-27)
+
+### Fix
+
+- **api**: return task id in the response of trigger-daily-dispatcher api
+
 ## v0.12.1 (2026-04-27)
 
 ### Feat
