@@ -1,3 +1,9 @@
+## v0.11.0 (2026-04-27)
+
+### Feat
+
+- **db**: merge AE-46 notification recipient schema
+
 ## v0.10.0 (2026-04-27)
 
 ### Feat
