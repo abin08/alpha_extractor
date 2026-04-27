@@ -70,7 +70,7 @@ async def _process_ai_brief(s3_uri: str, celery_task_id: str) -> int:
         return job_run_id
 
 
-@celery_app.task(name="tasks.generate_ai_brief", bind=True, max_retries=3)
+@celery_app.task(name="tasks.generate_ai_brief", bind=True, max_retries=3, rate_limit="10/m")
 def generate_ai_brief_task(self, s3_uri: str) -> int:
     """
     Celery entry point for the AI Brief generation.
