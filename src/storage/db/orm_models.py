@@ -137,3 +137,13 @@ class AIBriefResult(Base):
     # Relationships
     job_run: Mapped["JobRunMetadata"] = relationship(back_populates="ai_insights")
     target: Mapped["TargetConfig"] = relationship(back_populates="ai_insights")
+
+
+class NotificationRecipient(Base):
+    __tablename__ = "notification_recipients"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
