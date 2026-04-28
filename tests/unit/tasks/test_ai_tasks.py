@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.core.exceptions import LLMGenerationError
 from src.tasks.workers.ai_tasks import _process_ai_brief, generate_ai_brief_task
 
 
@@ -78,22 +79,44 @@ async def test_process_ai_brief_success(
 @patch("src.tasks.workers.ai_tasks._process_ai_brief", new_callable=MagicMock)
 @patch("src.tasks.workers.ai_tasks.asyncio.run")
 def test_generate_ai_brief_task_success(mock_run, mock_core):
-    """Test the happy path of the Celery wrapper."""
+    """Test the happy path of the Celery wrapper returning a graceful dict."""
     mock_self = MagicMock()
     mock_run.return_value = 100
     dummy_coro = MagicMock(name="coro")
     mock_core.return_value = dummy_coro
 
-    result = generate_ai_brief_task.run.__func__(mock_self, "s3://uri")
+    # Act
+    payload = {"status": "success", "ticker": "TEST.NS", "s3_uri": "s3://uri"}
+    result = generate_ai_brief_task.run.__func__(mock_self, payload)
 
-    assert result == 100
+    # Assert
+    assert result["status"] == "success"
+    assert result["ticker"] == "TEST.NS"
+    assert result["job_id"] == 100
     mock_run.assert_called_once_with(dummy_coro)
 
 
-@patch("src.tasks.workers.ai_tasks._process_ai_brief", new_callable=MagicMock)  # ADDED MOCK
+def test_generate_ai_brief_task_short_circuit():
+    """Test that if the ingestion task passed an error, the AI task short-circuits."""
+    mock_self = MagicMock()
+
+    # Act
+    error_payload = {
+        "status": "error",
+        "ticker": "TEST.NS",
+        "error_msg": "Upstream failed",
+    }
+    result = generate_ai_brief_task.run.__func__(mock_self, error_payload)
+
+    # Assert
+    # It should immediately return the exact payload without running the AI engine
+    assert result == error_payload
+
+
+@patch("src.tasks.workers.ai_tasks._process_ai_brief", new_callable=MagicMock)
 @patch("src.tasks.workers.ai_tasks.asyncio.run")
 def test_generate_ai_brief_task_retry(mock_run, mock_core):
-    """Test that transient errors trigger a Celery retry."""
+    """Test that transient errors still trigger a Celery retry."""
     mock_self = MagicMock()
     mock_self.request.retries = 0
     mock_self.max_retries = 3
@@ -101,25 +124,60 @@ def test_generate_ai_brief_task_retry(mock_run, mock_core):
     mock_run.side_effect = Exception("LLM Timeout")
     mock_self.retry.side_effect = Exception("Retry Invoked")
 
+    payload = {"status": "success", "ticker": "TEST.NS", "s3_uri": "s3://uri"}
+
+    # Act & Assert
     with pytest.raises(Exception, match="Retry Invoked"):
-        generate_ai_brief_task.run.__func__(mock_self, "s3://uri")
+        generate_ai_brief_task.run.__func__(mock_self, payload)
 
     assert mock_self.retry.called
     args, kwargs = mock_self.retry.call_args
-    # Updated to 60 based on your current code's behavior
     assert kwargs["countdown"] == 60
 
 
-@patch("src.tasks.workers.ai_tasks._process_ai_brief", new_callable=MagicMock)  # ADDED MOCK
+@patch("src.tasks.workers.ai_tasks.alert_failed_task")
+@patch("src.tasks.workers.ai_tasks._process_ai_brief", new_callable=MagicMock)
 @patch("src.tasks.workers.ai_tasks.asyncio.run")
-def test_generate_ai_brief_task_max_retries_exhausted(mock_run, mock_core):
-    """Test that reaching max retries results in a final raise."""
+def test_generate_ai_brief_task_max_retries_exhausted(mock_run, mock_core, mock_alert):
+    """Test that reaching max retries degrades gracefully and fires the DLQ."""
     mock_self = MagicMock()
     mock_self.request.retries = 3
     mock_self.max_retries = 3
-    mock_run.side_effect = Exception("Permanent failure")
+    mock_run.side_effect = Exception("Permanent network failure")
 
-    with pytest.raises(Exception, match="Permanent failure"):
-        generate_ai_brief_task.run.__func__(mock_self, "s3://uri")
+    payload = {"status": "success", "ticker": "TEST.NS", "s3_uri": "s3://uri"}
 
+    # Act
+    result = generate_ai_brief_task.run.__func__(mock_self, payload)
+
+    # Assert graceful dictionary
+    assert result["status"] == "error"
+    assert result["ticker"] == "TEST.NS"
+    assert result["job_id"] is None
+    assert result["error_msg"] == "Permanent network failure"
+
+    # Assert the DLQ alert was manually tripped
+    mock_alert.delay.assert_called_once()
+    mock_self.retry.assert_not_called()
+
+
+@patch("src.tasks.workers.ai_tasks.alert_failed_task")
+@patch("src.tasks.workers.ai_tasks._process_ai_brief", new_callable=MagicMock)
+@patch("src.tasks.workers.ai_tasks.asyncio.run")
+def test_generate_ai_brief_task_llm_error(mock_run, mock_core, mock_alert):
+    """Test that a deterministic LLM logic error fails fast and degrades gracefully."""
+    mock_self = MagicMock()
+    mock_run.side_effect = LLMGenerationError("Gemini API refused prompt")
+
+    payload = {"status": "success", "ticker": "TEST.NS", "s3_uri": "s3://uri"}
+
+    # Act
+    result = generate_ai_brief_task.run.__func__(mock_self, payload)
+
+    # Assert
+    assert result["status"] == "error"
+    assert result["ticker"] == "TEST.NS"
+    assert "Gemini API refused prompt" in result["error_msg"]
+
+    mock_alert.delay.assert_called_once()
     mock_self.retry.assert_not_called()

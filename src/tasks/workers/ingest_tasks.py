@@ -18,6 +18,7 @@ from src.ingestion.factory import DataSource, FetcherFactory
 from src.ingestion.strategies import register_strategies
 from src.storage.object_store.s3_client import AsyncS3Client
 from src.tasks.celery_app import celery_app
+from src.tasks.workers.error_tasks import alert_failed_task
 
 logger = get_logger(__name__)
 
@@ -95,48 +96,70 @@ async def _gather_and_upload(asset: AssetContext) -> str:
 
 
 @celery_app.task(name="tasks.ingest_asset", bind=True, max_retries=3)
-def ingest_asset_task(self, asset_dict: dict[str, Any]) -> str:
+def ingest_asset_task(self, asset_dict: dict[str, Any]) -> dict:
     """
     Celery worker task that acts as the entry point for Big Data ingestion.
+    Returns a standardized dictionary for graceful degradation in Celery Chords.
     """
     task_id = self.request.id
-    logger.info(f"Received Celery ingestion task for: {asset_dict.get('internal_symbol')}")
+    ticker = asset_dict.get("internal_symbol", "UNKNOWN")
+    logger.info(f"Received Celery ingestion task for: {ticker}")
 
     try:
-        # 1. Rehydrate the strict Pydantic Domain Model from the untyped Celery dictionary
+        # 1. Rehydrate the strict Pydantic Domain Model
         asset = AssetContext(**asset_dict)
         logger.debug(f"Successfully rehydrated AssetContext for {asset.internal_symbol}.")
 
         # 2. Bridge the sync Celery world with our async asyncio pipeline
         s3_uri = asyncio.run(_gather_and_upload(asset))
         logger.info(f"Ingestion task completed successfully. Payload S3 URI: {s3_uri}")
-        return s3_uri
+
+        # SUCCESS CONTRACT
+        return {"status": "success", "ticker": ticker, "s3_uri": s3_uri}
 
     except (ValueError, ValidationError) as ve:
         # 3. Deterministic Error: Do NOT retry.
-        # Pydantic validation failed. This will never succeed on a retry.
-        logger.error(
-            f"FATAL: Invalid payload structure for task {task_id}. "
-            f"Failing instantly to trigger DLQ. Error: {ve}"
+        logger.error(f"FATAL: Invalid payload structure for task {task_id}. Failing gracefully.")
+
+        # Explicitly trip the DLQ (passing stringified exception for JSON serialization)
+        alert_failed_task.delay(
+            request={"id": task_id, "task": self.name, "argsrepr": str(asset_dict)},
+            exc=str(ve),
+            traceback="Pydantic Validation Error",
         )
-        raise ValueError(f"Invalid asset payload format: {ve}") from ve
+
+        # ERROR CONTRACT
+        return {
+            "status": "error",
+            "ticker": ticker,
+            "s3_uri": None,
+            "error_msg": f"Invalid asset payload format: {ve}",
+        }
 
     except Exception as exc:
         # 4. Transient/Infrastructural Errors: Eligible for retry.
         if self.request.retries >= self.max_retries:
             logger.critical(
-                f"CRITICAL: Max retries exhausted for task {task_id}. Final Error: {exc}",
+                f"CRITICAL: Max retries exhausted for task {task_id}. Failing gracefully.",
                 exc_info=True,
             )
-            raise exc
 
-        # Execute surgical retry with exponential backoff (30s, 60s, 120s)
+            # Explicitly trip the DLQ
+            alert_failed_task.delay(
+                request={"id": task_id, "task": self.name, "argsrepr": str(asset_dict)},
+                exc=str(exc),
+                traceback="Max retries exhausted during ingestion",
+            )
+
+            # ERROR CONTRACT
+            return {
+                "status": "error",
+                "ticker": ticker,
+                "s3_uri": None,
+                "error_msg": str(exc),
+            }
+
+        # Execute surgical retry
         backoff_delay = 30 * (2**self.request.retries)
-
-        logger.warning(
-            f"Transient failure in task {task_id}. "
-            f"Retrying in {backoff_delay}s ({self.request.retries + 1}/{self.max_retries}). "
-            f"Error: {exc}"
-        )
-
+        logger.warning(f"Transient failure in task {task_id}. Retrying in {backoff_delay}s...")
         raise self.retry(exc=exc, countdown=backoff_delay)
