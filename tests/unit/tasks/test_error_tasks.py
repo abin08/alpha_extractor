@@ -42,9 +42,9 @@ async def test_dispatch_error_alert_success(mock_ung_class, mock_db_session):
 
     assert kwargs["ticker"] == "DLQ_ALERT"
     assert kwargs["recipients"] == ["admin_dlq@alpha.com"]
-    assert "DEAD LETTER QUEUE (DLQ) ALERT" in kwargs["markdown_payload"]
-    assert "tasks.ingest_asset" in kwargs["markdown_payload"]
-    assert "ValueError: Pydantic failed" in kwargs["markdown_payload"]
+    assert "DEAD LETTER QUEUE (DLQ) ALERT" in kwargs["html_payload"]
+    assert "tasks.ingest_asset" in kwargs["html_payload"]
+    assert "ValueError: Pydantic failed" in kwargs["html_payload"]
 
 
 @patch("src.tasks.workers.error_tasks._dispatch_error_alert", new_callable=MagicMock)
