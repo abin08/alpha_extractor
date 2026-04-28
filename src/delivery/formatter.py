@@ -37,7 +37,7 @@ class MarkdownFormatter:
         # 1. Header & Timestamp
         date_str = datetime.now().strftime("%B %d, %Y - %H:%M %Z").strip()
         md_lines = [
-            f"# 🦅 Alpha Extractor: {target_name}",
+            f"# Alpha Extractor: {target_name}",
             f"**Generated:** {date_str}",
             "---",
         ]
@@ -69,3 +69,37 @@ class MarkdownFormatter:
         md_lines.extend(["---", "*Generated autonomously by the Alpha Extractor AI Engine.*"])
 
         return "\n".join(md_lines)
+
+    @staticmethod
+    def format_daily_digest(brief_map: dict[str, str]) -> str:
+        """
+        Stitches multiple individual asset briefs into a single Daily Digest Markdown payload.
+        Handles the fallback gracefully if all assets failed in the pipeline.
+        """
+        if not brief_map:
+            return (
+                "# Alpha Extractor: Daily Digest\n\n"
+                "*System Alert: The pipeline ran, but no data could be "
+                "extracted or processed today. "
+                "Please check the system logs for details.*"
+            )
+
+        lines = ["# Alpha Extractor: Daily Digest\n"]
+        lines.append("## Table of Contents")
+
+        # 1. Build the Table of Contents
+        for ticker in brief_map.keys():
+            # Create URL-safe anchors for Markdown
+            anchor = ticker.lower().replace(".", "").replace(" ", "-")
+            lines.append(f"* [{ticker}](#{anchor})")
+
+        lines.append("\n---\n")
+
+        # 2. Append each individual brief
+        for ticker, markdown in brief_map.items():
+            # Inject the invisible HTML anchor target so the ToC links work
+            lines.append(f'<a id="{ticker.lower().replace(".", "").replace(" ", "-")}"></a>')
+            lines.append(markdown)
+            lines.append("\n---\n")
+
+        return "\n".join(lines)
