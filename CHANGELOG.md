@@ -1,3 +1,9 @@
+## v0.13.1 (2026-04-28)
+
+### Fix
+
+- **delivery**: force datetime formatter to use IST timezone
+
 ## v0.13.0 (2026-04-28)
 
 ### Feat
