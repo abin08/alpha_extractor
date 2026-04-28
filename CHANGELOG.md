@@ -1,3 +1,11 @@
+## v0.14.0 (2026-04-28)
+
+### Feat
+
+- **delivery**: refactor UNG client and orchestrator for html template injection (#78)
+- **delivery**: add futuristic jinja2 ui template for daily digest email (#77)
+- **delivery**: setup jinja2 templating engine and renderer (#76)
+
 ## v0.13.1 (2026-04-28)
 
 ### Fix
