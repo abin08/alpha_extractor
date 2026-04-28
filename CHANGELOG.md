@@ -1,3 +1,9 @@
+## v0.13.0 (2026-04-28)
+
+### Feat
+
+- Map-Reduce Architecture for Daily Digest Delivery (AE-50 to AE-53) (#75)
+
 ## v0.12.3 (2026-04-27)
 
 ### Fix
