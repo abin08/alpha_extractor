@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from src.core.logger import get_logger
 from src.domain.schemas.ai_response import MacroAnalysis, SentimentEnum
@@ -35,9 +36,11 @@ class MarkdownFormatter:
         logger.debug("Formatting MacroAnalysis into Markdown presentation...")
 
         # 1. Header & Timestamp
+        ist_tz = ZoneInfo("Asia/Kolkata")
         date_str = datetime.now().strftime("%B %d, %Y - %H:%M %Z").strip()
+        date_str = datetime.now(ist_tz).strftime("%B %d, %Y - %H:%M %Z").strip()
         md_lines = [
-            f"# Alpha Extractor: {target_name}",
+            f"#Alpha Extractor: {target_name}",
             f"**Generated:** {date_str}",
             "---",
         ]
