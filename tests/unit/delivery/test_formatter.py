@@ -19,7 +19,7 @@ def test_format_brief_with_insights():
     result = MarkdownFormatter.format_brief(analysis, target_name="Test Asset")
 
     # Assert Header
-    assert "🦅 Alpha Extractor: Test Asset" in result
+    assert "Alpha Extractor: Test Asset" in result
 
     # Assert Macro Section (Should map BEARISH to the red circle)
     assert "🔴 **BEARISH**" in result
@@ -43,3 +43,31 @@ def test_format_brief_empty_insights():
 
     assert "⚪ **NEUTRAL**" in result
     assert "*No actionable asset insights detected in this run.*" in result
+
+
+def test_format_daily_digest_success():
+    """Test that multiple briefs are stitched together with a Table of Contents."""
+    brief_map = {
+        "RELIANCE.NS": "# Reliance Report\nLooks great.",
+        "HDFCBANK.NS": "# HDFC Report\nSolid numbers.",
+    }
+
+    result = MarkdownFormatter.format_daily_digest(brief_map)
+
+    # Assert Table of Contents generation
+    assert "## Table of Contents" in result
+    assert "* [RELIANCE.NS](#reliancens)" in result
+    assert "* [HDFCBANK.NS](#hdfcbankns)" in result
+
+    # Assert anchor tags and content injection
+    assert '<a id="reliancens"></a>' in result
+    assert "# Reliance Report" in result
+    assert "# HDFC Report" in result
+
+
+def test_format_daily_digest_empty():
+    """Test the fallback message if all pipeline assets failed."""
+    result = MarkdownFormatter.format_daily_digest({})
+
+    assert "System Alert" in result
+    assert "no data could be extracted or processed today" in result
