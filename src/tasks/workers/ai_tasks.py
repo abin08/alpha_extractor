@@ -11,6 +11,7 @@ from src.storage.db.repositories.briefs import BriefRepository
 from src.storage.db.session import AsyncSessionLocal
 from src.storage.object_store.s3_client import AsyncS3Client
 from src.tasks.celery_app import celery_app
+from src.tasks.workers.error_tasks import alert_failed_task
 
 logger = get_logger(__name__)
 
@@ -71,11 +72,21 @@ async def _process_ai_brief(s3_uri: str, celery_task_id: str) -> int:
 
 
 @celery_app.task(name="tasks.generate_ai_brief", bind=True, max_retries=3, rate_limit="10/m")
-def generate_ai_brief_task(self, s3_uri: str) -> int:
+def generate_ai_brief_task(self, ingest_payload: dict) -> dict:
     """
     Celery entry point for the AI Brief generation.
+    Receives the standardized dictionary from the Ingestion task.
     """
     task_id = self.request.id
+    ticker = ingest_payload.get("ticker", "UNKNOWN")
+
+    # 1. Graceful Degradation: Short-Circuit Check
+    if ingest_payload.get("status") == "error":
+        logger.warning(f"Bypassing AI generation for {ticker} due to upstream ingestion error.")
+        # Pass the error payload straight down the chain to the final digest delivery
+        return ingest_payload
+
+    s3_uri = ingest_payload.get("s3_uri")
     current_attempt = self.request.retries + 1
 
     logger.info(
@@ -84,29 +95,44 @@ def generate_ai_brief_task(self, s3_uri: str) -> int:
     )
 
     try:
-        return asyncio.run(_process_ai_brief(s3_uri, task_id))
+        job_run_id = asyncio.run(_process_ai_brief(s3_uri, task_id))
+
+        # SUCCESS CONTRACT
+        return {"status": "success", "ticker": ticker, "job_id": job_run_id}
 
     except LLMGenerationError as lex:
-        logger.error(
-            f"FATAL: Logic failure in LLM generation for {task_id}. "
-            f"Halting retries to conserve API quota. Reason: {lex}"
+        logger.error(f"FATAL: Logic failure in LLM generation for {task_id}. Halting retries.")
+        alert_failed_task.delay(
+            request={"id": task_id, "task": self.name, "argsrepr": str(ingest_payload)},
+            exc=str(lex),
+            traceback="LLM Generation Logic Error",
         )
-        raise
+        return {
+            "status": "error",
+            "ticker": ticker,
+            "job_id": None,
+            "error_msg": str(lex),
+        }
 
     except Exception as exc:
         if self.request.retries >= self.max_retries:
-            logger.critical(
-                f"CRITICAL: Max retries exhausted for task {task_id}. "
-                f"Failed processing payload: {s3_uri}. Final Error: {exc}",
-                exc_info=True,
+            logger.critical(f"CRITICAL: Max retries exhausted for task {task_id}.", exc_info=True)
+            alert_failed_task.delay(
+                request={
+                    "id": task_id,
+                    "task": self.name,
+                    "argsrepr": str(ingest_payload),
+                },
+                exc=str(exc),
+                traceback="Max retries exhausted in AI worker",
             )
-            raise exc
+            return {
+                "status": "error",
+                "ticker": ticker,
+                "job_id": None,
+                "error_msg": str(exc),
+            }
 
         backoff_delay = 60 * (2**self.request.retries)
-
-        logger.warning(
-            f"Transient failure in task {task_id}. "
-            f"Retrying in {backoff_delay}s ({current_attempt}/{self.max_retries}). Error: {exc}"
-        )
-
+        logger.warning(f"Transient failure in task {task_id}. Retrying in {backoff_delay}s...")
         raise self.retry(exc=exc, countdown=backoff_delay)

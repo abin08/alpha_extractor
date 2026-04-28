@@ -59,8 +59,8 @@ def mock_db_session():
 
 
 @pytest.mark.asyncio
-@patch("src.tasks.workers.scheduler_tasks.chain")
-async def test_dispatch_empty_database(mock_chain, mock_db_session):
+@patch("src.tasks.workers.scheduler_tasks.chord")
+async def test_dispatch_empty_database(mock_chord, mock_db_session):
     """Test 1: If no active targets are found, it should idle and return 0."""
     # Arrange: DB returns empty list
     mock_db_session.all.return_value = []
@@ -70,28 +70,34 @@ async def test_dispatch_empty_database(mock_chain, mock_db_session):
 
     # Assert
     assert count == 0
-    mock_chain.assert_not_called()
+    mock_chord.assert_not_called()
 
 
 @pytest.mark.asyncio
+@patch("src.tasks.workers.scheduler_tasks.chord")
 @patch("src.tasks.workers.scheduler_tasks.chain")
 @patch("src.tasks.workers.scheduler_tasks.ingest_asset_task")
-async def test_dispatch_successful_fan_out(mock_ingest, mock_chain, mock_db_session):
+async def test_dispatch_successful_fan_out(mock_ingest, mock_chain, mock_chord, mock_db_session):
     """Test 2: Verifies schema translation and successful queueing with vendor mappings."""
     # Arrange: DB returns 2 active targets with valid mappings
     target1 = MockTargetConfig(1, "EQUITY", "RELIANCE", "Reliance Ind")
     target2 = MockTargetConfig(2, "EQUITY", "HDFCBANK", "HDFC Bank")
     mock_db_session.all.return_value = [target1, target2]
 
-    mock_pipeline = MagicMock()
-    mock_chain.return_value = mock_pipeline
+    # Mock the return for chord()(callback)
+    mock_chord_instance = MagicMock()
+    mock_chord.return_value = mock_chord_instance
 
     # Act
     count = await _dispatch_active_targets()
 
     # Assert
     assert count == 2
-    assert mock_pipeline.apply_async.call_count == 2
+    assert mock_chain.call_count == 2
+
+    # Verify the chord was built and dispatched
+    mock_chord.assert_called_once()
+    mock_chord_instance.assert_called_once()
 
     # Verify the bounded context translation includes the new vendor routing symbols
     expected_payload = {
@@ -106,16 +112,14 @@ async def test_dispatch_successful_fan_out(mock_ingest, mock_chain, mock_db_sess
 
 
 @pytest.mark.asyncio
+@patch("src.tasks.workers.scheduler_tasks.chord")
 @patch("src.tasks.workers.scheduler_tasks.chain")
-async def test_dispatch_skips_missing_mapping(mock_chain, mock_db_session):
+async def test_dispatch_skips_missing_mapping(mock_chain, mock_chord, mock_db_session):
     """Test 3: If an ACTIVE target has no mapping (DB anomaly), it skips it securely."""
     # Arrange: Target 1 is broken (no mapping), Target 2 is good
     target1 = MockTargetConfig(1, "EQUITY", "POISON", "Bad Data", has_mapping=False)
     target2 = MockTargetConfig(2, "EQUITY", "GOOD", "Good Data", has_mapping=True)
     mock_db_session.all.return_value = [target1, target2]
-
-    mock_pipeline = MagicMock()
-    mock_chain.return_value = mock_pipeline
 
     # Act
     count = await _dispatch_active_targets()
@@ -123,38 +127,14 @@ async def test_dispatch_skips_missing_mapping(mock_chain, mock_db_session):
     # Assert
     # It should only queue the good target
     assert count == 1
-    assert mock_pipeline.apply_async.call_count == 1
-
-
-@pytest.mark.asyncio
-@patch("src.tasks.workers.scheduler_tasks.chain")
-async def test_dispatch_resilience_loop(mock_chain, mock_db_session):
-    """Test 4: If queueing one target raises an exception, the loop must continue."""
-    # Arrange: DB returns 2 targets
-    target1 = MockTargetConfig(1, "EQUITY", "POISON", "Bad Queue")
-    target2 = MockTargetConfig(2, "EQUITY", "GOOD", "Good Queue")
-    mock_db_session.all.return_value = [target1, target2]
-
-    # Force the chain to raise an Exception on the FIRST call, but succeed on the SECOND
-    mock_pipeline = MagicMock()
-    mock_pipeline.apply_async.side_effect = [
-        Exception("Redis connection dropped"),
-        None,
-    ]
-    mock_chain.return_value = mock_pipeline
-
-    # Act
-    count = await _dispatch_active_targets()
-
-    # Assert
-    assert count == 1
-    assert mock_pipeline.apply_async.call_count == 2
+    assert mock_chain.call_count == 1
+    mock_chord.assert_called_once()
 
 
 @patch("src.tasks.workers.scheduler_tasks._dispatch_active_targets", new_callable=MagicMock)
 @patch("src.tasks.workers.scheduler_tasks.asyncio.run")
 def test_sync_wrapper_task(mock_asyncio_run, mock_dispatch_core):
-    """Test 5: Verify the Celery synchronous wrapper executes the async core."""
+    """Test 4: Verify the Celery synchronous wrapper executes the async core."""
     mock_asyncio_run.return_value = 5
     dummy_coro = MagicMock(name="dummy_coro")
     mock_dispatch_core.return_value = dummy_coro
