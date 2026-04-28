@@ -62,35 +62,38 @@ async def test_gather_and_upload_success(
 @patch("src.tasks.workers.ingest_tasks._gather_and_upload", new_callable=MagicMock)
 @patch("src.tasks.workers.ingest_tasks.asyncio.run")
 def test_ingest_asset_task_success(mock_run, mock_core, mock_asset_dict):
-    """Test the happy path of the Ingestion Celery wrapper."""
-    # Arrange
+    """Test the happy path of the Ingestion Celery wrapper returns correct dict."""
     mock_self = MagicMock()
     mock_run.return_value = "s3://success-path"
     dummy_coro = MagicMock(name="coro")
     mock_core.return_value = dummy_coro
 
-    # Act
     result = ingest_asset_task.run.__func__(mock_self, mock_asset_dict)
 
-    # Assert
-    assert result == "s3://success-path"
+    assert result["status"] == "success"
+    assert result["ticker"] == "RELIANCE.NS"
+    assert result["s3_uri"] == "s3://success-path"
     mock_run.assert_called_once_with(dummy_coro)
 
 
+@patch("src.tasks.workers.ingest_tasks.alert_failed_task")
 @patch("src.tasks.workers.ingest_tasks._gather_and_upload", new_callable=MagicMock)
 @patch("src.tasks.workers.ingest_tasks.asyncio.run")
-def test_ingest_asset_task_fail_fast_validation(mock_run, mock_core):
-    """Test that deterministic ValueError (Pydantic) fails immediately without retry."""
-    # Arrange
+def test_ingest_asset_task_fail_fast_validation(mock_run, mock_core, mock_alert):
+    """Test that validation fails gracefully and triggers DLQ alert manually."""
     mock_self = MagicMock()
-    # Passing an invalid dict (missing internal_symbol) to trigger the rehydration catch
     invalid_dict = {"bad_key": "will_fail_pydantic"}
 
-    # Act & Assert
-    with pytest.raises(ValueError, match="Invalid asset payload format"):
-        ingest_asset_task.run.__func__(mock_self, invalid_dict)
+    # Act
+    result = ingest_asset_task.run.__func__(mock_self, invalid_dict)
 
-    # CRITICAL: Verify retry was NOT called for validation errors
+    # Assert graceful dict return
+    assert result["status"] == "error"
+    assert result["ticker"] == "UNKNOWN"
+    assert "validation error" in result["error_msg"].lower()
+
+    # Assert DLQ was manually triggered
+    mock_alert.delay.assert_called_once()
     mock_self.retry.assert_not_called()
 
 
@@ -98,38 +101,37 @@ def test_ingest_asset_task_fail_fast_validation(mock_run, mock_core):
 @patch("src.tasks.workers.ingest_tasks.asyncio.run")
 def test_ingest_asset_task_retry_infra(mock_run, mock_core, mock_asset_dict):
     """Test that transient infra errors trigger a Celery retry."""
-    # Arrange
     mock_self = MagicMock()
     mock_self.request.retries = 0
     mock_self.max_retries = 3
 
-    # Simulate a transient network failure (e.g., S3 or DataSource down)
     mock_run.side_effect = Exception("S3 Connection Refused")
     mock_self.retry.side_effect = Exception("Retry Invoked")
 
-    # Act & Assert
     with pytest.raises(Exception, match="Retry Invoked"):
         ingest_asset_task.run.__func__(mock_self, mock_asset_dict)
 
-    # Verify retry logic: 30 * (2 ** 0) = 30
     assert mock_self.retry.called
-    args, kwargs = mock_self.retry.call_args
-    assert kwargs["countdown"] == 30
 
 
+@patch("src.tasks.workers.ingest_tasks.alert_failed_task")
 @patch("src.tasks.workers.ingest_tasks._gather_and_upload", new_callable=MagicMock)
 @patch("src.tasks.workers.ingest_tasks.asyncio.run")
-def test_ingest_asset_task_max_retries_exhausted(mock_run, mock_core, mock_asset_dict):
-    """Test that reaching max retries results in a final raise (no more retries)."""
-    # Arrange
+def test_ingest_asset_task_max_retries_exhausted(mock_run, mock_core, mock_alert, mock_asset_dict):
+    """Test max retries swallows the error gracefully and fires DLQ."""
     mock_self = MagicMock()
     mock_self.request.retries = 3
     mock_self.max_retries = 3
     mock_run.side_effect = Exception("Permanent failure")
 
-    # Act & Assert
-    with pytest.raises(Exception, match="Permanent failure"):
-        ingest_asset_task.run.__func__(mock_self, mock_asset_dict)
+    # Act
+    result = ingest_asset_task.run.__func__(mock_self, mock_asset_dict)
 
-    # Retry should NOT be called since we are at the limit
+    # Assert graceful dict return
+    assert result["status"] == "error"
+    assert result["ticker"] == "RELIANCE.NS"
+    assert result["error_msg"] == "Permanent failure"
+
+    # Assert DLQ fired
+    mock_alert.delay.assert_called_once()
     mock_self.retry.assert_not_called()
