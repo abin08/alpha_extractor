@@ -4,6 +4,14 @@
 
 - Map-Reduce Architecture for Daily Digest Delivery (AE-50 to AE-53) (#75)
 
+* feat(tasks): implement graceful degradation pattern for pipeline tasks (#71)
+
+* feat(delivery): add digest formatter and fan-in delivery task (#72)
+
+* feat(scheduler): wire celery chord for map-reduce orchestration (#73)
+
+* refactor(api): remove deprecated isolated delivery route (#74)
+
 ## v0.12.3 (2026-04-27)
 
 ### Fix
