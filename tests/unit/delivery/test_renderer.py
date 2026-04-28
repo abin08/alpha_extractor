@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from jinja2 import TemplateNotFound
 
@@ -44,3 +46,14 @@ def test_render_template_not_found(renderer):
     """Verify that missing templates raise the appropriate Jinja exception."""
     with pytest.raises(TemplateNotFound):
         renderer.render_template("does_not_exist.html", {})
+
+
+def test_render_template_generic_exception(renderer):
+    """Verify that generic rendering exceptions are caught, logged, and re-raised."""
+
+    # We patch the underlying Jinja2 environment's get_template method to force a generic Exception
+    with patch.object(
+        renderer.env, "get_template", side_effect=Exception("Simulated syntax error")
+    ):
+        with pytest.raises(Exception, match="Simulated syntax error"):
+            renderer.render_template("base.html", {"subject": "Test"})
