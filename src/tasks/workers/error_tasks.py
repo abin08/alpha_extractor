@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime
 
+import markdown
 from sqlalchemy import select
 
 from src.core.logger import get_logger
@@ -23,19 +24,17 @@ async def _dispatch_error_alert(
     markdown_payload = (
         f"# 🚨 DEAD LETTER QUEUE (DLQ) ALERT\n"
         f"**Severity:** CRITICAL 🔴\n"
-        f"**Timestamp:** {date_str}\n"
-        f"---\n"
-        f"### Task Failure Details\n"
-        f"* **Task Name:** `{task_name}`\n"
-        f"* **Task ID:** `{task_id}`\n"
-        f"* **Input Args:** `{argsrepr}`\n\n"
-        f"### Exception Trace\n"
-        f"```python\n"
-        f"{exception}\n"
-        f"```\n"
-        f"---\n"
+        f"**Timestamp:** `{date_str}`\n"
+        f"**Task ID:** `{task_id}`\n"
+        f"**Task Name:** `{task_name}`\n"
+        f"**Exception:** `{exception}`\n"
+        f"**Arguments:** `{argsrepr}`\n\n"
         f"> *Action Required: Please check the worker container logs for the full stack trace.*"
     )
+
+    # Convert alert to HTML before dispatching
+    html_content = markdown.markdown(markdown_payload, extensions=["fenced_code"])
+
     async with AsyncSessionLocal() as session:
         stmt = select(NotificationRecipient.email).where(NotificationRecipient.is_active)
         result = await session.scalars(stmt)
@@ -47,10 +46,9 @@ async def _dispatch_error_alert(
         )
         return
 
-    # Pass the dynamic recipients
     await client.dispatch_brief(
         ticker="DLQ_ALERT",
-        markdown_payload=markdown_payload,
+        html_payload=html_content,
         recipients=list(active_emails),
     )
 

@@ -23,7 +23,7 @@ async def test_dispatch_brief_mock_bypass(mock_settings):
     client = UNGClient()
 
     with patch("src.delivery.ung_client.httpx.AsyncClient") as mock_httpx_class:
-        result = await client.dispatch_brief("TEST.NS", "# Markdown Report", ["test@test.com"])
+        result = await client.dispatch_brief("TEST.NS", "<h1>HTML Report</h1>", ["test@test.com"])
 
     assert result is True
     mock_httpx_class.assert_not_called()
@@ -44,7 +44,7 @@ async def test_dispatch_brief_success(mock_httpx_class, mock_settings):
     mock_httpx_class.return_value.__aenter__.return_value = mock_httpx_instance
 
     recipients = ["trader_one@alpha.com", "analyst@alpha.com"]
-    result = await client.dispatch_brief("TEST.NS", "# Markdown Report", recipients)
+    result = await client.dispatch_brief("TEST.NS", "<h1>HTML Report</h1>", recipients)
 
     assert result is True
     mock_httpx_instance.post.assert_called_once_with(
@@ -54,7 +54,7 @@ async def test_dispatch_brief_success(mock_httpx_class, mock_settings):
             "recipient": {"to": ["trader_one@alpha.com", "analyst@alpha.com"]},
             "content": {
                 "subject": "🦅 Alpha Extractor: TEST.NS Brief",
-                "html_body": "<h1>Markdown Report</h1>",
+                "html_body": "<h1>HTML Report</h1>",
             },
             "metadata": {
                 "source_service": "alpha-extractor",
@@ -85,7 +85,7 @@ async def test_dispatch_brief_http_error(mock_httpx_class, mock_settings):
     mock_httpx_class.return_value.__aenter__.return_value = mock_httpx_instance
 
     with pytest.raises(httpx.HTTPStatusError):
-        await client.dispatch_brief("TEST.NS", "# Markdown Report", ["test@test.com"])
+        await client.dispatch_brief("TEST.NS", "<h1>HTML Report</h1>", ["test@test.com"])
 
 
 @pytest.mark.asyncio
@@ -102,4 +102,4 @@ async def test_dispatch_brief_network_error(mock_httpx_class, mock_settings):
     mock_httpx_class.return_value.__aenter__.return_value = mock_httpx_instance
 
     with pytest.raises(httpx.RequestError):
-        await client.dispatch_brief("TEST.NS", "# Markdown Report", ["test@test.com"])
+        await client.dispatch_brief("TEST.NS", "<h1>HTML Report</h1>", ["test@test.com"])

@@ -18,48 +18,50 @@ def mock_db_session():
 
 
 @pytest.mark.asyncio
+@patch("src.tasks.workers.delivery_tasks.EmailRenderer")
+@patch("src.tasks.workers.delivery_tasks.markdown.markdown")
 @patch("src.tasks.workers.delivery_tasks.UNGClient")
 @patch("src.tasks.workers.delivery_tasks.MarkdownFormatter.format_daily_digest")
-async def test_process_daily_digest_success(mock_format, mock_ung_class, mock_db_session):
-    """Test that the digest engine correctly filters failures and stitches successes."""
-    # Arrange: Pass a mixed array of successes and failures
+async def test_process_daily_digest_success(
+    mock_format, mock_ung_class, mock_markdown, mock_renderer_class, mock_db_session
+):
+    """Test that the digest engine correctly filters failures, renders HTML, and dispatches."""
+
     chord_results = [
         {"status": "success", "ticker": "RELIANCE.NS", "job_id": 10},
-        {
-            "status": "error",
-            "ticker": "HDFCBANK.NS",
-            "job_id": None,
-            "error_msg": "Timeout",
-        },
+        {"status": "error", "ticker": "HDFCBANK.NS", "job_id": None},
     ]
 
-    # Mock the DB scalar for the 1 successful markdown fetch
     mock_db_session.scalar.side_effect = ["# Reliance MD"]
-
-    # Mock the DB scalars for fetching active emails
     mock_scalars = MagicMock()
     mock_scalars.all.return_value = ["admin@alpha.com"]
     mock_db_session.scalars.return_value = mock_scalars
 
     mock_format.return_value = "# MEGA DIGEST"
+    mock_markdown.return_value = "<h1>MEGA DIGEST</h1>"
+
+    mock_renderer_instance = MagicMock()
+    mock_renderer_instance.render_template.return_value = "<html><h1>MEGA DIGEST</h1></html>"
+    mock_renderer_class.return_value = mock_renderer_instance
 
     mock_ung_instance = mock_ung_class.return_value
     mock_ung_instance.dispatch_brief = AsyncMock()
 
-    # Act
     result = await _process_daily_digest(chord_results)
 
-    # Assert
     assert "Delivered Daily Digest (1 assets)" in result
-
-    # Ensure formatter was ONLY passed the successful job
     mock_format.assert_called_once_with({"RELIANCE.NS": "# Reliance MD"})
+    mock_markdown.assert_called_once_with("# MEGA DIGEST", extensions=["fenced_code", "tables"])
 
-    mock_ung_instance.dispatch_brief.assert_called_once_with(
-        ticker="DAILY_DIGEST",
-        markdown_payload="# MEGA DIGEST",
-        recipients=["admin@alpha.com"],
-    )
+    mock_renderer_instance.render_template.assert_called_once()
+    context_passed = mock_renderer_instance.render_template.call_args[0][1]
+    assert context_passed["target_count"] == 1
+    assert context_passed["markdown_content"] == "<h1>MEGA DIGEST</h1>"
+
+    mock_ung_instance.dispatch_brief.assert_called_once()
+    kwargs = mock_ung_instance.dispatch_brief.call_args[1]
+    assert kwargs["ticker"] == "DAILY_DIGEST"
+    assert kwargs["html_payload"] == "<html><h1>MEGA DIGEST</h1></html>"
 
 
 @patch("src.tasks.workers.delivery_tasks._process_daily_digest", new_callable=MagicMock)
