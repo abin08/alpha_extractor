@@ -4,14 +4,16 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import httpx
-import markdown
 from sqlalchemy import select
 
 from src.core.logger import get_logger
-from src.delivery.formatter import MarkdownFormatter
-from src.delivery.renderer import EmailRenderer
+from src.delivery.email_renderer import AlphaExtractorEmail
 from src.delivery.ung_client import UNGClient
-from src.storage.db.orm_models import JobRunMetadata, NotificationRecipient
+from src.storage.db.orm_models import (
+    JobRunMetadata,
+    NotificationRecipient,
+    TargetConfig,
+)
 from src.storage.db.session import AsyncSessionLocal
 from src.tasks.celery_app import celery_app
 
@@ -20,8 +22,8 @@ logger = get_logger(__name__)
 
 async def _process_daily_digest(chord_results: list[dict]) -> str:
     """
-    Async engine that filters chord results, fetches successful markdowns,
-    renders the futuristic HTML template, and delivers via UNG.
+    Async engine that fetches raw AI JSON, maps it to the component schema,
+    renders the pure-Python HTML template, and delivers via UNG.
     """
     successful_jobs = {
         res["ticker"]: res["job_id"]
@@ -29,45 +31,85 @@ async def _process_daily_digest(chord_results: list[dict]) -> str:
         if res.get("status") == "success" and res.get("job_id")
     }
 
-    brief_map = {}
     async with AsyncSessionLocal() as session:
-        for ticker, job_id in successful_jobs.items():
-            stmt = select(JobRunMetadata.brief_markdown).where(JobRunMetadata.id == job_id)
-            markdown_content = await session.scalar(stmt)
-            if markdown_content:
-                brief_map[ticker] = markdown_content
-
+        # 1. Fetch Recipients
         stmt_recipients = select(NotificationRecipient.email).where(NotificationRecipient.is_active)
         result = await session.scalars(stmt_recipients)
         active_emails = result.all()
 
-    if not active_emails:
-        logger.warning("No active email recipients configured. Skipping Daily Digest delivery.")
-        return "Skipped Daily Digest (no recipients)"
+        if not active_emails:
+            logger.warning("No active email recipients configured. Skipping Daily Digest delivery.")
+            return "Skipped Daily Digest (no recipients)"
 
-    # 1. Format the raw mega-markdown
-    mega_markdown = MarkdownFormatter.format_daily_digest(brief_map)
+        # 2. Fetch Company Names
+        target_names = {}
+        if successful_jobs:
+            stmt_targets = select(TargetConfig.identifier, TargetConfig.name).where(
+                TargetConfig.identifier.in_(successful_jobs.keys())
+            )
+            target_rows = await session.execute(stmt_targets)
+            target_names = {row.identifier: (row.name or row.identifier) for row in target_rows}
 
-    # 2. Convert Markdown to HTML tags
-    html_content = markdown.markdown(mega_markdown, extensions=["fenced_code", "tables"])
+        # 3. Fetch Raw JSON Responses & Macro Sentiment
+        job_map = {}
+        if successful_jobs:
+            stmt_jobs = select(JobRunMetadata).where(
+                JobRunMetadata.id.in_(successful_jobs.values())
+            )
+            jobs = await session.scalars(stmt_jobs)
+            job_map = {job.id: job for job in jobs}
 
-    # 3. Prepare Jinja2 Context
+    # 4. Data Mapping for AlphaExtractorEmail Component
     ist_tz = ZoneInfo("Asia/Kolkata")
     date_str = datetime.now(ist_tz).strftime("%A, %B %d, %Y at %I:%M %p")
     trace_id = f"alpha-extractor-email-{uuid.uuid4().hex[:8]}"
 
-    context = {
+    # Default fallback state
+    macro_sentiment = "neutral"
+    macro_summary = "System Alert: The pipeline ran, but no actionable data could be extracted \
+        or processed today. Please check the system logs."
+    assets_data = []
+
+    if job_map:
+        # Extract global macro view from the first available successful job
+        first_job = next(iter(job_map.values()))
+        macro_sentiment = (
+            first_job.macro_sentiment.lower() if first_job.macro_sentiment else "neutral"
+        )
+        macro_summary = first_job.sector_rotation or "Market overview unavailable."
+
+        # Map individual asset insights
+        for ticker, job_id in successful_jobs.items():
+            job = job_map.get(job_id)
+            if not job or not job.raw_response:
+                continue
+
+            insights = job.raw_response.get("insights", [])
+            for idx, insight in enumerate(insights):
+                assets_data.append(
+                    {
+                        "ticker": ticker if idx == 0 else f"{ticker} (Cont.)",
+                        "name": target_names.get(ticker, ticker),
+                        "sentiment": insight.get("sentiment", "neutral").lower(),
+                        "catalyst": insight.get("catalyst", "N/A"),
+                        "actionableEdge": insight.get("actionable_edge", "N/A"),
+                    }
+                )
+
+    # Assemble final UI payload
+    template_data = {
         "date": date_str,
-        "target_count": len(brief_map),
-        "trace_id": trace_id,
-        "markdown_content": html_content,
+        "macroSentiment": macro_sentiment,
+        "macroSummary": macro_summary,
+        "assets": assets_data,
+        "traceId": trace_id,
     }
 
-    # 4. Render the Final UI Template
-    renderer = EmailRenderer()
-    final_html = renderer.render_template("daily_digest.html", context)
+    # 5. Render the Component UI
+    renderer = AlphaExtractorEmail()
+    final_html = renderer.render(template_data)
 
-    # 5. Dispatch via UNG Client
+    # 6. Dispatch via UNG Client
     client = UNGClient()
     await client.dispatch_brief(
         ticker="DAILY_DIGEST",
@@ -76,7 +118,8 @@ async def _process_daily_digest(chord_results: list[dict]) -> str:
         trace_id=trace_id,
     )
 
-    return f"Delivered Daily Digest ({len(brief_map)} assets) to {len(active_emails)} recipients"
+    return f"Delivered Daily Digest ({len(assets_data)} insights) \
+        to {len(active_emails)} recipients"
 
 
 @celery_app.task(

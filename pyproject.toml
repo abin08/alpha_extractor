@@ -59,6 +59,9 @@ target-version = "py312"
 select = ["E", "F", "I", "UP"]
 ignore = []
 
+[tool.ruff.lint.per-file-ignores]
+"src/delivery/email_renderer.py" = ["E501"]
+
 [dependency-groups]
 dev = [
     "pytest-asyncio>=1.3.0",
