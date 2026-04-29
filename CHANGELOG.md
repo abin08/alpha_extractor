@@ -1,3 +1,9 @@
+## v0.14.2 (2026-04-29)
+
+### Refactor
+
+- **delivery**: updated email renderer
+
 ## v0.14.1 (2026-04-29)
 
 ### Refactor
