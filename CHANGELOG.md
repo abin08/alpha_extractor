@@ -1,3 +1,11 @@
+## v0.14.1 (2026-04-29)
+
+### Refactor
+
+- **delivery**: replace markdown DLQ alerts with native HTML, Footer: Part of AE-58 (#82)
+- **delivery**: refactor orchestrator to use pure-python component rendering (#81)
+- **ai**: strip markdown formatting from ai generation and db persistence (#80)
+
 ## v0.14.0 (2026-04-28)
 
 ### Feat
