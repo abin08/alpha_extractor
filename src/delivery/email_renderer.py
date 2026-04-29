@@ -64,16 +64,16 @@ class AssetData:
     name: str
     sentiment: str
     catalyst: str
-    actionableEdge: str
+    actionableEdge: str  # noqa: N815
 
 
 @dataclass
 class DigestData:
     date: str
-    macroSentiment: str
-    macroSummary: str
+    macroSentiment: str  # noqa: N815
+    macroSummary: str  # noqa: N815
     assets: list[AssetData]
-    traceId: str = "alpha-extractor-email"
+    traceId: str = "alpha-extractor-email"  # noqa: N815
 
     @classmethod
     def from_dict(cls, d: dict) -> DigestData:
@@ -90,56 +90,59 @@ class DigestData:
 # ---------------------------------------------------------------------------
 # SVG logo
 # ---------------------------------------------------------------------------
+# Email-safe SVG: uses only flat fill/stroke hex colours — no url(#gradient)
+# references, which are stripped by Gmail and most email clients.
 _LOGO_SVG = (
     '<svg width="36" height="36" viewBox="0 0 120 120" fill="none"'
     ' xmlns="http://www.w3.org/2000/svg">'
-    '<circle cx="60" cy="60" r="52" stroke="url(#eRing)" stroke-width="1" opacity="0.2"/>'
+    # outer ring
+    '<circle cx="60" cy="60" r="52" stroke="#60a5fa" stroke-width="1" opacity="0.2"/>'
+    # corner brackets
+    '<g stroke="#2dd4bf" stroke-width="1.5" opacity="0.4">'
+    '<path d="M10 10 L10 18 M10 10 L18 10" stroke-linecap="round"/>'
+    '<path d="M110 10 L110 18 M110 10 L102 10" stroke-linecap="round"/>'
+    "</g>"
+    # flow lines from bottom nodes up to central hub
+    '<g stroke="#2dd4bf" stroke-width="2" opacity="0.45">'
+    '<line x1="20" y1="75" x2="60" y2="30"/>'
+    '<line x1="35" y1="95" x2="60" y2="30"/>'
+    '<line x1="60" y1="100" x2="60" y2="30"/>'
+    '<line x1="85" y1="95" x2="60" y2="30"/>'
+    '<line x1="100" y1="75" x2="60" y2="30"/>'
+    "</g>"
+    # bottom network nodes
     "<g>"
-    '<circle cx="20" cy="75" r="7" fill="url(#eNode)" opacity="0.9"/>'
+    '<circle cx="20" cy="75" r="7" fill="#3b82f6" opacity="0.9"/>'
     '<circle cx="20" cy="75" r="4" fill="#60a5fa"/>'
-    '<circle cx="20" cy="75" r="10" stroke="#60a5fa" stroke-width="1" opacity="0.3"/>'
-    '<circle cx="35" cy="95" r="7" fill="url(#eNode)" opacity="0.9"/>'
+    '<circle cx="20" cy="75" r="10" stroke="#60a5fa" stroke-width="1" opacity="0.25"/>'
+    '<circle cx="35" cy="95" r="7" fill="#3b82f6" opacity="0.9"/>'
     '<circle cx="35" cy="95" r="4" fill="#60a5fa"/>'
-    '<circle cx="35" cy="95" r="10" stroke="#60a5fa" stroke-width="1" opacity="0.3"/>'
-    '<circle cx="60" cy="100" r="7" fill="url(#eNode)" opacity="0.9"/>'
+    '<circle cx="35" cy="95" r="10" stroke="#60a5fa" stroke-width="1" opacity="0.25"/>'
+    '<circle cx="60" cy="100" r="7" fill="#3b82f6" opacity="0.9"/>'
     '<circle cx="60" cy="100" r="4" fill="#60a5fa"/>'
-    '<circle cx="60" cy="100" r="10" stroke="#60a5fa" stroke-width="1" opacity="0.3"/>'
-    '<circle cx="85" cy="95" r="7" fill="url(#eNode)" opacity="0.9"/>'
+    '<circle cx="60" cy="100" r="10" stroke="#60a5fa" stroke-width="1" opacity="0.25"/>'
+    '<circle cx="85" cy="95" r="7" fill="#3b82f6" opacity="0.9"/>'
     '<circle cx="85" cy="95" r="4" fill="#60a5fa"/>'
-    '<circle cx="85" cy="95" r="10" stroke="#60a5fa" stroke-width="1" opacity="0.3"/>'
-    '<circle cx="100" cy="75" r="7" fill="url(#eNode)" opacity="0.9"/>'
+    '<circle cx="85" cy="95" r="10" stroke="#60a5fa" stroke-width="1" opacity="0.25"/>'
+    '<circle cx="100" cy="75" r="7" fill="#3b82f6" opacity="0.9"/>'
     '<circle cx="100" cy="75" r="4" fill="#60a5fa"/>'
-    '<circle cx="100" cy="75" r="10" stroke="#60a5fa" stroke-width="1" opacity="0.3"/>'
+    '<circle cx="100" cy="75" r="10" stroke="#60a5fa" stroke-width="1" opacity="0.25"/>'
     "</g>"
-    "<g>"
-    '<line x1="20" y1="75" x2="60" y2="30" stroke="url(#eFlow)"'
-    ' stroke-width="2" opacity="0.5"/>'
-    '<line x1="35" y1="95" x2="60" y2="30" stroke="url(#eFlow)"'
-    ' stroke-width="2" opacity="0.5"/>'
-    '<line x1="60" y1="100" x2="60" y2="30" stroke="url(#eFlow)"'
-    ' stroke-width="2" opacity="0.5"/>'
-    '<line x1="85" y1="95" x2="60" y2="30" stroke="url(#eFlow)"'
-    ' stroke-width="2" opacity="0.5"/>'
-    '<line x1="100" y1="75" x2="60" y2="30" stroke="url(#eFlow)"'
-    ' stroke-width="2" opacity="0.5"/>'
-    '<circle cx="40" cy="52" r="2.5" fill="#2dd4bf" opacity="0.6"/>'
-    '<circle cx="47" cy="62" r="2.5" fill="#2dd4bf" opacity="0.6"/>'
-    '<circle cx="60" cy="65" r="2.5" fill="#2dd4bf" opacity="0.6"/>'
-    '<circle cx="73" cy="62" r="2.5" fill="#2dd4bf" opacity="0.6"/>'
-    '<circle cx="80" cy="52" r="2.5" fill="#2dd4bf" opacity="0.6"/>'
+    # flow signal dots along lines
+    '<g fill="#2dd4bf" opacity="0.7">'
+    '<circle cx="40" cy="52" r="2.5"/>'
+    '<circle cx="47" cy="62" r="2.5"/>'
+    '<circle cx="60" cy="65" r="2.5"/>'
+    '<circle cx="73" cy="62" r="2.5"/>'
+    '<circle cx="80" cy="52" r="2.5"/>'
     "</g>"
-    '<path d="M 60 18 L 75 26 L 75 42 L 60 50 L 45 42 L 45 26 Z"'
-    ' stroke="url(#eFrame)" stroke-width="1.5" fill="none" opacity="0.4"/>'
-    "<g>"
-    '<circle cx="60" cy="30" r="14" fill="url(#eGlow)" opacity="0.3"/>'
-    '<circle cx="60" cy="30" r="4.5" fill="#00E5FF" opacity="0.95"/>'
-    '<circle cx="60" cy="30" r="2.5" fill="#ffffff" opacity="0.9"/>'
-    '<circle cx="52" cy="22" r="3" fill="url(#eInsight)" opacity="0.9"/>'
-    '<circle cx="68" cy="22" r="3" fill="url(#eInsight)" opacity="0.9"/>'
-    '<circle cx="48" cy="30" r="3" fill="url(#eInsight)" opacity="0.9"/>'
-    '<circle cx="72" cy="30" r="3" fill="url(#eInsight)" opacity="0.9"/>'
-    '<circle cx="52" cy="38" r="3" fill="url(#eInsight)" opacity="0.9"/>'
-    '<circle cx="68" cy="38" r="3" fill="url(#eInsight)" opacity="0.9"/>'
+    # hexagon frame around hub
+    '<path d="M60 18 L75 26 L75 42 L60 50 L45 42 L45 26 Z"'
+    ' stroke="#00E5FF" stroke-width="1.5" fill="none" opacity="0.35"/>'
+    # hub glow ring
+    '<circle cx="60" cy="30" r="16" stroke="#00E5FF" stroke-width="1"'
+    ' opacity="0.25" stroke-dasharray="2,2"/>'
+    # hub satellite nodes + connector spokes
     '<g stroke="#00E5FF" stroke-width="1" opacity="0.4">'
     '<line x1="60" y1="30" x2="52" y2="22"/>'
     '<line x1="60" y1="30" x2="68" y2="22"/>'
@@ -147,46 +150,18 @@ _LOGO_SVG = (
     '<line x1="60" y1="30" x2="72" y2="30"/>'
     '<line x1="60" y1="30" x2="52" y2="38"/>'
     '<line x1="60" y1="30" x2="68" y2="38"/>'
-    '<line x1="52" y1="22" x2="48" y2="30" opacity="0.3"/>'
-    '<line x1="68" y1="22" x2="72" y2="30" opacity="0.3"/>'
-    '<line x1="48" y1="30" x2="52" y2="38" opacity="0.3"/>'
-    '<line x1="72" y1="30" x2="68" y2="38" opacity="0.3"/>'
     "</g>"
-    '<circle cx="60" cy="30" r="16" stroke="#00E5FF" stroke-width="1"'
-    ' opacity="0.3" stroke-dasharray="2,2"/>'
+    '<g fill="#00E5FF" opacity="0.9">'
+    '<circle cx="52" cy="22" r="3"/>'
+    '<circle cx="68" cy="22" r="3"/>'
+    '<circle cx="48" cy="30" r="3"/>'
+    '<circle cx="72" cy="30" r="3"/>'
+    '<circle cx="52" cy="38" r="3"/>'
+    '<circle cx="68" cy="38" r="3"/>'
     "</g>"
-    '<g stroke="#2dd4bf" stroke-width="1.5" opacity="0.3">'
-    '<path d="M 10 10 L 10 18 M 10 10 L 18 10" stroke-linecap="round"/>'
-    '<path d="M 110 10 L 110 18 M 110 10 L 102 10" stroke-linecap="round"/>'
-    "</g>"
-    "<defs>"
-    '<linearGradient id="eRing" x1="0%" y1="0%" x2="100%" y2="100%">'
-    '<stop offset="0%" stop-color="#60a5fa"/>'
-    '<stop offset="50%" stop-color="#2dd4bf"/>'
-    '<stop offset="100%" stop-color="#60a5fa"/>'
-    "</linearGradient>"
-    '<radialGradient id="eNode">'
-    '<stop offset="0%" stop-color="#60a5fa"/>'
-    '<stop offset="100%" stop-color="#3b82f6"/>'
-    "</radialGradient>"
-    '<linearGradient id="eFlow" x1="0%" y1="100%" x2="0%" y2="0%">'
-    '<stop offset="0%" stop-color="#60a5fa" stop-opacity="0.4"/>'
-    '<stop offset="50%" stop-color="#2dd4bf" stop-opacity="0.7"/>'
-    '<stop offset="100%" stop-color="#00E5FF" stop-opacity="0.9"/>'
-    "</linearGradient>"
-    '<linearGradient id="eFrame" x1="0%" y1="0%" x2="100%" y2="100%">'
-    '<stop offset="0%" stop-color="#00E5FF"/>'
-    '<stop offset="100%" stop-color="#2dd4bf"/>'
-    "</linearGradient>"
-    '<radialGradient id="eGlow">'
-    '<stop offset="0%" stop-color="#00E5FF"/>'
-    '<stop offset="100%" stop-color="transparent"/>'
-    "</radialGradient>"
-    '<radialGradient id="eInsight">'
-    '<stop offset="0%" stop-color="#00E5FF"/>'
-    '<stop offset="100%" stop-color="#2dd4bf"/>'
-    "</radialGradient>"
-    "</defs>"
+    # central hub dot
+    '<circle cx="60" cy="30" r="4.5" fill="#00E5FF" opacity="0.95"/>'
+    '<circle cx="60" cy="30" r="2.5" fill="#ffffff" opacity="0.9"/>'
     "</svg>"
 )
 
@@ -249,7 +224,7 @@ class AlphaExtractorEmail:
         return (
             '<tr><td style="padding: 0 0 16px 0;">'
             f'<table width="100%" cellpadding="0" cellspacing="0" border="0"'
-            f" style=\"border: 1px solid {s['border']}; border-radius: 8px;"
+            f' style="border: 1px solid {s["border"]}; border-radius: 8px;'
             f' background-color: rgba(18,18,18,0.6);">'
             '<tr><td style="padding: 20px;">'
             # — ticker / badge row —
@@ -264,11 +239,11 @@ class AlphaExtractorEmail:
             f' color: rgb(170,170,170);">{_e(asset.name)}</div>'
             "</td>"
             '<td style="vertical-align: top; text-align: right; white-space: nowrap;">'
-            f"<span style=\"display: inline-block; background-color: {s['bg']};"
+            f'<span style="display: inline-block; background-color: {s["bg"]};'
             f" border: 1px solid {s['border']}; border-radius: 20px;"
             f" padding: 6px 12px; font-size: 11px;"
             f" font-family: 'Courier New', monospace; font-weight: 600;"
-            f" color: {s['color']};\">{s['badge']}</span>"
+            f' color: {s["color"]};">{s["badge"]}</span>'
             "</td>"
             "</tr>"
             "</table>"
@@ -351,10 +326,10 @@ class AlphaExtractorEmail:
             '<tr><td style="padding: 24px;">'
             # macro block
             f'<table width="100%" cellpadding="0" cellspacing="0" border="0"'
-            f" style=\"border: 1px solid {macro_s['border']}; border-radius: 8px;"
+            f' style="border: 1px solid {macro_s["border"]}; border-radius: 8px;'
             f' background-color: rgba(18,18,18,0.6); margin-bottom: 24px;">'
             '<tr><td style="padding: 20px;">'
-            f"<div style=\"display: inline-block; background-color: {macro_s['bg']};"
+            f'<div style="display: inline-block; background-color: {macro_s["bg"]};'
             f" border: 1px solid {macro_s['border']}; border-radius: 6px;"
             f" padding: 6px 14px; font-size: 11px;"
             f" font-family: 'Courier New', monospace; font-weight: 700;"
