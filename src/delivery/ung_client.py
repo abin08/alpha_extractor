@@ -52,7 +52,7 @@ class UNGClient:
             "channel": "email",
             "recipient": {"to": recipients},
             "content": {
-                "subject": f"🦅 Alpha Extractor: {ticker} Brief",
+                "subject": f"Alpha Extractor: {ticker} Brief",
                 "html_body": html_payload,
             },
             "metadata": {

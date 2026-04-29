@@ -9,7 +9,6 @@ from src.tasks.workers.ai_tasks import _process_ai_brief, generate_ai_brief_task
 @pytest.mark.asyncio
 @patch("src.tasks.workers.ai_tasks.AsyncSessionLocal")
 @patch("src.tasks.workers.ai_tasks.BriefRepository")
-@patch("src.tasks.workers.ai_tasks.MarkdownFormatter.format_brief")
 @patch("src.tasks.workers.ai_tasks.LLMServiceFacade")
 @patch("src.tasks.workers.ai_tasks.get_system_prompt")
 @patch("src.tasks.workers.ai_tasks.ContextBuilder.build")
@@ -19,7 +18,6 @@ async def test_process_ai_brief_success(
     mock_builder,
     mock_prompt,
     mock_facade_class,
-    mock_formatter,
     mock_repo_class,
     mock_session_local,
 ):
@@ -44,8 +42,6 @@ async def test_process_ai_brief_success(
     mock_facade_instance.generate_brief.return_value = mock_fake_analysis
     mock_facade_class.return_value = mock_facade_instance
 
-    mock_formatter.return_value = "# Fake Markdown Report"
-
     mock_session = AsyncMock()
     mock_session_local.return_value.__aenter__.return_value = mock_session
 
@@ -68,7 +64,6 @@ async def test_process_ai_brief_success(
         ticker="TEST.NS",
         celery_task_id=fake_task_id,
         s3_uri=s3_uri,
-        markdown_report="# Fake Markdown Report",
         ai_result=mock_fake_analysis,
     )
 
