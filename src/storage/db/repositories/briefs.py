@@ -1,4 +1,6 @@
-from sqlalchemy import select
+from datetime import datetime
+
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -98,3 +100,100 @@ class BriefRepository:
             await self.session.rollback()
             logger.error(f"Unexpected error persisting brief for {ticker}: {e}")
             raise DatabasePersistenceError(f"Unexpected persistence error for {ticker}") from e
+
+    async def search_insights(
+        self,
+        ticker: str | None = None,
+        asset_type: str | None = None,
+        sentiment: str | None = None,
+        macro_sentiment: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+        keyword: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict:
+        """
+        Dynamically searches historical AI insights across
+        TargetConfig, AIBriefResult, and JobRunMetadata.
+        Returns a dictionary containing the mapped 'data' and
+        'total_results' for pagination.
+        """
+        logger.info(f"Executing historical insight search. Keyword: {keyword}, Ticker: {ticker}")
+
+        # 1. Base Query with 3-Way JOIN
+        stmt = (
+            select(AIBriefResult, TargetConfig, JobRunMetadata)
+            .join(TargetConfig, AIBriefResult.target_id == TargetConfig.id)
+            .join(JobRunMetadata, AIBriefResult.job_run_id == JobRunMetadata.id)
+        )
+
+        # 2. Apply Dynamic Filters
+        if ticker:
+            stmt = stmt.where(TargetConfig.identifier == ticker)
+
+        if asset_type:
+            stmt = stmt.where(TargetConfig.asset_type == asset_type)
+
+        if sentiment:
+            # SQLAlchemy ilike is case-insensitive
+            stmt = stmt.where(AIBriefResult.sentiment.ilike(sentiment))
+
+        if macro_sentiment:
+            stmt = stmt.where(JobRunMetadata.macro_sentiment.ilike(macro_sentiment))
+
+        if date_from:
+            stmt = stmt.where(JobRunMetadata.run_date >= date_from)
+
+        if date_to:
+            stmt = stmt.where(JobRunMetadata.run_date <= date_to)
+
+        if keyword:
+            # Search both the catalyst and the actionable edge
+            search_term = f"%{keyword}%"
+            stmt = stmt.where(
+                or_(
+                    AIBriefResult.catalyst.ilike(search_term),
+                    AIBriefResult.actionable_edge.ilike(search_term),
+                )
+            )
+
+        # 3. Get Total Count (for pagination math)
+        # We wrap the filtered statement in a subquery to count the total rows ignoring limit/offset
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total_results = await self.session.scalar(count_stmt) or 0
+
+        # 4. Apply Sorting and Pagination
+        stmt = stmt.order_by(JobRunMetadata.run_date.desc())
+        stmt = stmt.limit(limit).offset(offset)
+
+        # 5. Execute Data Query
+        result = await self.session.execute(stmt)
+        rows = result.all()
+
+        # 6. Map SQL Rows to Pydantic-ready dictionaries
+        mapped_data = []
+        for brief, target, job in rows:
+            mapped_data.append(
+                {
+                    "target": {
+                        "identifier": target.identifier,
+                        "name": target.name,
+                        "asset_type": target.asset_type.value,
+                    },
+                    "insight": {
+                        "insight_id": brief.id,
+                        "sentiment": brief.sentiment,
+                        "catalyst": brief.catalyst,
+                        "actionable_edge": brief.actionable_edge,
+                    },
+                    "macro_context": {
+                        "job_id": job.id,
+                        "run_date": job.run_date,
+                        "macro_sentiment": job.macro_sentiment,
+                        "sector_rotation": job.sector_rotation,
+                    },
+                }
+            )
+
+        return {"total_results": total_results, "data": mapped_data}
