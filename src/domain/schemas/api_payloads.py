@@ -85,3 +85,52 @@ class RecipientResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TargetSummaryData(BaseModel):
+    """Lightweight representation of the target asset for search results."""
+
+    identifier: str = Field(..., description="Ticker symbol or ISIN")
+    name: str | None = Field(None, description="Human readable name")
+    asset_type: str = Field(..., description="EQUITY or MUTUAL_FUND")
+
+
+class InsightData(BaseModel):
+    """The specific AI-generated insight for the asset."""
+
+    insight_id: int
+    sentiment: str
+    catalyst: str
+    actionable_edge: str
+
+
+class MacroContextData(BaseModel):
+    """The overarching market context during the time of the insight."""
+
+    job_id: int
+    run_date: datetime
+    macro_sentiment: str | None
+    sector_rotation: str | None
+
+
+class InsightSearchResult(BaseModel):
+    """A flattened, nested representation of a single historical insight."""
+
+    target: TargetSummaryData
+    insight: InsightData
+    macro_context: MacroContextData
+
+
+class SearchPagination(BaseModel):
+    """Pagination metadata for the client."""
+
+    total_results: int
+    limit: int
+    offset: int
+
+
+class PaginatedSearchResponse(BaseModel):
+    """The final API payload for the /insights/search endpoint."""
+
+    data: list[InsightSearchResult]
+    pagination: SearchPagination
