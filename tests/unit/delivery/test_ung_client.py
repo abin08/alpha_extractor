@@ -51,7 +51,12 @@ async def test_dispatch_brief_success(mock_httpx_class, mock_settings):
         "https://api.fake-ung.com/v1/notify",
         json={
             "channel": "email",
-            "recipient": {"to": ["trader_one@alpha.com", "analyst@alpha.com"]},
+            "recipient": {
+                "bcc": [
+                    "trader_one@alpha.com",
+                    "analyst@alpha.com",
+                ]
+            },
             "content": {
                 "subject": "Alpha Extractor: TEST.NS Brief",
                 "html_body": "<h1>HTML Report</h1>",

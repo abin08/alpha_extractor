@@ -50,7 +50,7 @@ class UNGClient:
         # Construct the nested payload
         payload = {
             "channel": "email",
-            "recipient": {"to": recipients},
+            "recipient": {"bcc": recipients},
             "content": {
                 "subject": f"Alpha Extractor: {ticker} Brief",
                 "html_body": html_payload,
