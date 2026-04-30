@@ -5,7 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_db
-from src.api.routes import jobs, recipients, target_config
+from src.api.routes import insights, jobs, recipients, target_config
 from src.core.exceptions import (
     AlphaExtractorError,
     RateLimitExceeded,
@@ -26,6 +26,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+ROUTE_PREFIX = "/api/v1"
 
 
 @app.exception_handler(AlphaExtractorError)
@@ -58,9 +60,10 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
 
 
-app.include_router(target_config.router, prefix="/api/v1")
-app.include_router(jobs.router, prefix="/api/v1")
-app.include_router(recipients.router, prefix="/api/v1")
+app.include_router(target_config.router, prefix=ROUTE_PREFIX)
+app.include_router(jobs.router, prefix=ROUTE_PREFIX)
+app.include_router(recipients.router, prefix=ROUTE_PREFIX)
+app.include_router(insights.router, prefix=ROUTE_PREFIX)
 
 
 @app.get("/health", tags=["System"])
