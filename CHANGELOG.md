@@ -1,3 +1,14 @@
+## v0.15.0 (2026-04-30)
+
+### Feat
+
+- **search**: implement insights search API endpoint and edge case tests (#84)
+- **search**: implement search schemas and 3-way join query for historical insights (#83)
+
+### Fix
+
+- **delivery**: send email recipients as bcc instead of to
+
 ## v0.14.3 (2026-04-29)
 
 ### Refactor
