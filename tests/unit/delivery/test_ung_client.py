@@ -52,10 +52,11 @@ async def test_dispatch_brief_success(mock_httpx_class, mock_settings):
         json={
             "channel": "email",
             "recipient": {
+                "to": ["noreply@alpha.com"],
                 "bcc": [
                     "trader_one@alpha.com",
                     "analyst@alpha.com",
-                ]
+                ],
             },
             "content": {
                 "subject": "Alpha Extractor: TEST.NS Brief",
